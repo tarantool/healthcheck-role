@@ -108,9 +108,9 @@ local function get_routes_to_delete(prev_conf, curr_conf)
 end
 
 function M.apply(conf)
-    local new_conf = (conf and conf.http) or {}
+    local new_conf = conf or {}
     -- set new routes
-    for _, http_cfg in pairs(new_conf) do
+    for _, http_cfg in pairs(new_conf.http) do
         local server_name = http_cfg.server or httpd_role.DEFAULT_SERVER_NAME
         local server = httpd_role.get_server(server_name)
 
@@ -164,14 +164,31 @@ function M.apply(conf)
         ::continue::
     end
 
+    ---@type RoleConfig
     M.prev_conf = table.deepcopy(new_conf)
 end
 
-
-
-function M.stop(conf)
+function M.stop()
     -- deletes all routes
-    
+    if M.prev_conf == nil then
+        return
+    end
+
+    for _, http_cfg in pairs(M.prev_conf.http) do
+        local server_name = http_cfg.server or httpd_role.DEFAULT_SERVER_NAME
+        local server = httpd_role.get_server(server_name)
+        if server == nil then
+            goto continue
+        end
+        for _, endpoint in pairs(http_cfg.endpoints) do
+            local path = remove_side_slashes(endpoint.path)
+            if server.iroutes[path] ~= nil then
+                server:delete(path)
+                log.info("delete route, server: %s, path: %s", server_name, path)
+            end
+        end
+        ::continue::
+    end
 end
 
 M.dependencies = {'roles.httpd'}
