@@ -64,7 +64,7 @@ function helpers.create_test_cluster(config)
         }
     }
 
-    local cluster = luatest_cluster:new(config, server_opts)
+    local cluster = luatest_cluster:new(config, server_opts, {dir = '.'})
     ---@cast cluster LuatestCluster
     return cluster
 end
