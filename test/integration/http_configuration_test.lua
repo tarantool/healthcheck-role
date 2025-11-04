@@ -331,6 +331,9 @@ g.test_server_add_remove = function(cg)
     check_endpoint_existence(8082, '/healthcheck2')
 end
 
+
+--- test random endpoints configurations with different servers
+---@param cg basic_test_context
 g.test_http_config_mutations = function(cg)
     local servers = {
         { name = 'default', port = 8081 },
@@ -422,6 +425,8 @@ g.test_http_config_mutations = function(cg)
     end
 end
 
+--- test when server's port changes, endpoints must be available on new port
+---@param cg basic_test_context
 g.test_change_server_port = function(cg)
     local config = cbuilder:new()
         :use_group('routers')
@@ -463,6 +468,54 @@ g.test_change_server_port = function(cg)
     check_endpoint_existence(8082, '/healthcheck')
 end
 
-g.test_role_stop = function()
-    
+
+--- test when role deleted from configuration, endpoints should be deleted too
+---@param cg basic_test_context
+g.test_role_stop = function(cg)
+    local config = cbuilder:new()
+        :use_group('routers')
+        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
+        :set_group_option('roles_cfg', {
+            ['roles.healthcheck'] = {
+                http = {
+                    {
+                        endpoints = {
+                            {
+                                path = '/healthcheck',
+                            },
+                        },
+                    },
+                    {
+                        server = 'additional',
+                        endpoints = {
+                            {
+                                path = '/healthcheck',
+                            },
+                        },
+                    },
+                },
+            },
+        })
+        :use_replicaset('router')
+        :add_instance('router', {})
+        :set_instance_option('router', 'roles_cfg', {
+            ['roles.httpd'] = {
+                default = {
+                    listen = 8081,
+                },
+                additional = {
+                    listen = 8082,
+                },
+            },
+        })
+
+    cg.cluster:reload(config:config())
+    check_endpoint_existence(8081, '/healthcheck')
+    check_endpoint_existence(8082, '/healthcheck')
+
+    config:set_group_option('roles', { 'roles.httpd' })
+    cg.cluster:reload(config:config())
+
+    check_endpoint_nonexistence(8081, '/healthcheck')
+    check_endpoint_nonexistence(8082, '/healthcheck')
 end
