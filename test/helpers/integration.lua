@@ -119,4 +119,114 @@ function helpers.http_get(port, path)
     return http_client.get('http://localhost:' .. port .. path)
 end
 
+--- build_httpd_roles_cfg produces roles.httpd configuration from a list of servers.
+---
+--- @param servers table<number, { name: string, port: number }>
+--- @return table<string, { listen: number }>
+function helpers.build_httpd_roles_cfg(servers)
+    assert(type(servers) == 'table', 'servers must be a table')
+    local cfg = {}
+    for _, server in ipairs(servers) do
+        assert(type(server) == 'table', 'server entry must be a table')
+        assert(server.name ~= nil, 'server.name must be provided')
+        assert(server.port ~= nil, 'server.port must be provided')
+        cfg[server.name] = { listen = server.port }
+    end
+    return cfg
+end
+
+--- generate_healthcheck_http_sections builds randomized healthcheck sections.
+---
+--- Returned summary contains expected endpoints per server and allows callers to
+--- accumulate all generated paths across iterations.
+---
+--- @class generate_http_section_options
+--- @field seed? integer
+--- @field sections? integer
+--- @field min_endpoints? integer
+--- @field max_endpoints? integer
+--- @field servers? string[]
+--- @field default_server? string
+--- @field path_prefix? string
+--- @field start_index? integer
+--- @field allow_serverless? boolean
+--- @field include_empty_section? boolean
+--- @return table[] sections
+--- @return table summary
+function helpers.generate_healthcheck_http_sections(opts)
+    opts = opts or {}
+    local sections_count = opts.sections or 3
+    local min_endpoints = opts.min_endpoints or 0
+    local max_endpoints = opts.max_endpoints or 3
+    local servers = opts.servers or {}
+    local default_server = opts.default_server or 'default'
+    local allow_serverless = opts.allow_serverless ~= false
+    local next_index = opts.start_index or 1
+    local path_prefix = opts.path_prefix or '/health-auto'
+
+    assert(sections_count >= 1, 'opts.sections must be >= 1')
+    assert(max_endpoints >= min_endpoints, 'opts.max_endpoints must be >= opts.min_endpoints')
+
+    if opts.seed ~= nil then
+        math.randomseed(opts.seed)
+    end
+
+    local sections = {}
+    local per_server = {}
+
+    for _, name in ipairs(servers) do
+        per_server[name] = per_server[name] or {}
+    end
+    per_server[default_server] = per_server[default_server] or {}
+
+    for _ = 1, sections_count do
+        local section = {}
+        local endpoints = {}
+
+        local target_server = nil
+        if #servers > 0 then
+            local pool_size = #servers + (allow_serverless and 1 or 0)
+            local choice = math.random(1, pool_size)
+            if choice <= #servers then
+                target_server = servers[choice]
+                section.server = target_server
+            end
+        end
+
+        local endpoints_count = 0
+        if max_endpoints > 0 then
+            endpoints_count = math.random(min_endpoints, max_endpoints)
+        end
+
+        for _ = 1, endpoints_count do
+            local path = string.format('%s-%04d', path_prefix, next_index)
+            next_index = next_index + 1
+            table.insert(endpoints, { path = path })
+            per_server[target_server or default_server] =
+                per_server[target_server or default_server] or {}
+            table.insert(per_server[target_server or default_server], path)
+        end
+
+        section.endpoints = endpoints
+        table.insert(sections, section)
+    end
+
+    if opts.include_empty_section then
+        table.insert(sections, { endpoints = {} })
+    end
+
+    local all_paths = {}
+    for _, paths in pairs(per_server) do
+        for _, path in ipairs(paths) do
+            all_paths[path] = true
+        end
+    end
+
+    return sections, {
+        per_server = per_server,
+        all_paths = all_paths,
+        next_index = next_index,
+    }
+end
+
 return helpers

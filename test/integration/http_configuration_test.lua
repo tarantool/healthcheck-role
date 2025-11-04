@@ -331,6 +331,97 @@ g.test_server_add_remove = function(cg)
     check_endpoint_existence(8082, '/healthcheck2')
 end
 
+g.test_http_config_mutations = function(cg)
+    local servers = {
+        { name = 'default', port = 8081 },
+        { name = 'srv_2', port = 8082 },
+        { name = 'srv_3', port = 8083 },
+    }
+
+    local config = cbuilder:new()
+        :use_group('routers')
+        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
+        :set_group_option('roles_cfg', {
+            ['roles.healthcheck'] = {
+                http = {
+                    {
+                        endpoints = {},
+                    },
+                },
+            },
+        })
+        :use_replicaset('router')
+        :add_instance('router', {})
+        :set_instance_option('router', 'roles_cfg', {
+            ['roles.httpd'] = helpers.build_httpd_roles_cfg(servers),
+        })
+
+    cg.cluster:reload(config:config())
+
+    local path_index = 1
+    local iterations = 100
+    local healthcheck_servers = {}
+    local previous_paths_by_server = {}
+
+    for _, server in ipairs(servers) do
+        table.insert(healthcheck_servers, server.name)
+    end
+
+    for iteration = 1, iterations do
+        local sections, summary = helpers.generate_healthcheck_http_sections({
+            seed = 1000 + iteration,
+            sections = 4,
+            min_endpoints = 1,
+            max_endpoints = 3,
+            servers = healthcheck_servers,
+            default_server = 'default',
+            start_index = path_index,
+            include_empty_section = true,
+        })
+
+        path_index = summary.next_index
+
+        config:set_group_option('roles_cfg', {
+            ['roles.healthcheck'] = {
+                http = sections,
+            },
+        })
+
+        cg.cluster:reload(config:config())
+
+        local current_paths_by_server = {}
+
+        for _, server in ipairs(servers) do
+            local expected_paths = summary.per_server[server.name] or {}
+            local expected_lookup = {}
+
+            for _, path in ipairs(expected_paths) do
+                expected_lookup[path] = true
+                check_endpoint_existence(server.port, path)
+            end
+
+            for path in pairs(summary.all_paths) do
+                if not expected_lookup[path] then
+                    check_endpoint_nonexistence(server.port, path)
+                end
+            end
+
+            local previous_paths = previous_paths_by_server[server.name]
+            if previous_paths ~= nil then
+                for path in pairs(previous_paths) do
+                    if not expected_lookup[path] then
+                        check_endpoint_nonexistence(server.port, path)
+                    end
+                end
+            end
+
+            current_paths_by_server[server.name] = expected_lookup
+        end
+
+        previous_paths_by_server = current_paths_by_server
+    end
+end
+
 g.test_change_server_port = function(cg)
     local config = cbuilder:new()
         :use_group('routers')
@@ -370,4 +461,8 @@ g.test_change_server_port = function(cg)
         })
     cg.cluster:reload(config:config())
     check_endpoint_existence(8082, '/healthcheck')
+end
+
+g.test_role_stop = function()
+    
 end
