@@ -170,8 +170,8 @@ end
 
 
 function M.stop(conf)
--- deletes all routes
-
+    -- deletes all routes
+    
 end
 
 M.dependencies = {'roles.httpd'}
