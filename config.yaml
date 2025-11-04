@@ -1,0 +1,38 @@
+---
+groups:
+  routers:
+    replicasets:
+      router:
+        instances:
+          router:
+            roles_cfg:
+              roles.httpd:
+                default:
+                  listen: 8081
+    roles_cfg:
+      roles.healthcheck:
+        http:
+        - endpoints:
+          - path: /healthcheck
+    roles:
+    - roles.httpd
+    - roles.healthcheck
+credentials:
+  users:
+    replicator:
+      password: secret
+      roles:
+      - replication
+    client:
+      password: secret
+      roles:
+      - super
+iproto:
+  listen:
+  - uri: unix/:./{{ instance_name }}.iproto
+  advertise:
+    peer:
+      login: replicator
+replication:
+  timeout: 0.1
+...
