@@ -1,10 +1,9 @@
-local urilib = require("uri")
-local http_server = require('http.server')
 local httpd_role = require('roles.httpd')
 local log = require('logger')
 local metrics = require('metrics')
 local healthcheck = require('healthcheck')
 local json = require('json')
+local schema = require('experimental.config.utils.schema')
 
 local M = {
     prev_conf = nil,
@@ -28,6 +27,24 @@ local function remove_side_slashes(path)
     return '/' .. path
 end
 
+local healthcheck_role_schema = schema.new('healthcheck_role', schema.record({
+    http = schema.array({
+        items = schema.record({
+            server = schema.scalar({
+                type = 'string',
+                default = httpd_role.DEFAULT_SERVER_NAME,
+            }),
+            endpoints = schema.array({
+                items = schema.record({
+                    path = schema.scalar({
+                        type = 'string',
+                    })
+                })
+            })
+        })
+    })
+}))
+
 --- @class EndpointConfig
 --- @field path string
 
@@ -39,7 +56,7 @@ end
 --- @field http table<number,RoleHttpConfig>
 --- @param conf RoleConfig
 function M.validate(conf)
-    
+    healthcheck_role_schema:validate(conf)
 end
 
 --- Collects endpoints grouped by server for the provided config.
@@ -108,12 +125,18 @@ local function get_routes_to_delete(prev_conf, curr_conf)
 end
 
 function M.apply(conf)
-    local new_conf = conf or {}
+    local new_conf = healthcheck_role_schema:apply_default(conf)
+    for _, http_cfg in pairs(new_conf.http) do
+        local server = httpd_role.get_server(http_cfg.server)
+        if server == nil then
+            local msg = ("incorrect configuration, http server '%s' does not exist. check roles.https config"):format(http_cfg.server)
+            log.error(msg)
+            error(msg)
+        end
+    end
     -- set new routes
     for _, http_cfg in pairs(new_conf.http) do
-        local server_name = http_cfg.server or httpd_role.DEFAULT_SERVER_NAME
-        local server = httpd_role.get_server(server_name)
-
+        local server = httpd_role.get_server(http_cfg.server)
         for _, endpoint in pairs(http_cfg.endpoints) do
             local path = remove_side_slashes(endpoint.path)
             if server.iroutes[path] == nil then
@@ -146,7 +169,7 @@ function M.apply(conf)
                         }
                     end
                 end))
-                log.info("set route, server: %s, path: %s", server_name, path)
+                log.info("set route, server: %s, path: %s", http_cfg.server, path)
             end
         end
     end
@@ -175,8 +198,7 @@ function M.stop()
     end
 
     for _, http_cfg in pairs(M.prev_conf.http) do
-        local server_name = http_cfg.server or httpd_role.DEFAULT_SERVER_NAME
-        local server = httpd_role.get_server(server_name)
+        local server = httpd_role.get_server(http_cfg.server)
         if server == nil then
             goto continue
         end
@@ -184,13 +206,15 @@ function M.stop()
             local path = remove_side_slashes(endpoint.path)
             if server.iroutes[path] ~= nil then
                 server:delete(path)
-                log.info("delete route, server: %s, path: %s", server_name, path)
+                log.info("delete route, server: %s, path: %s", http_cfg.server, path)
             end
         end
         ::continue::
     end
 end
 
-M.dependencies = {'roles.httpd'}
+M.dependencies = {
+    'roles.httpd',
+}
 
 return M
