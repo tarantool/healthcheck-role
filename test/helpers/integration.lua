@@ -1,7 +1,7 @@
 local luatest_cluster = require('luatest.cluster')
 local fio = require('fio')
 local http_client = require('http.client')
-local json = require('json')
+local clock = require('clock')
 
 --- Tarantool server helper exposed by luatest.
 ---
@@ -135,96 +135,63 @@ function helpers.build_httpd_roles_cfg(servers)
     return cfg
 end
 
---- generate_healthcheck_http_sections builds randomized healthcheck sections.
+--- generate_healthcheck_http_sections builds a randomized set of sections.
 ---
---- Returned summary contains expected endpoints per server and allows callers to
---- accumulate all generated paths across iterations.
+--- For every section we pick a random server (or fall back to the default one)
+--- and create a random number of endpoints in the range `[0, endpoints_per_section]`
+--- with sequential names (`/endpointN`). The function keeps seeding randomness
+--- so that repeated calls produce different shapes while still tracking the
+--- generated endpoints per server for assertions.
 ---
 --- @class generate_http_section_options
---- @field seed? integer
---- @field sections? integer
---- @field min_endpoints? integer
---- @field max_endpoints? integer
---- @field servers? string[]
---- @field default_server? string
---- @field path_prefix? string
---- @field start_index? integer
---- @field allow_serverless? boolean
---- @field include_empty_section? boolean
+--- @field sections integer -- total number of sections to produce
+--- @field endpoints_per_section integer -- endpoints per section
+--- @field servers? string[] -- non-default server names
+--- @field start_index? integer -- starting suffix for endpoint names
 --- @return table[] sections
 --- @return table summary
 function helpers.generate_healthcheck_http_sections(opts)
+    math.randomseed(clock.time())
     opts = opts or {}
-    local sections_count = opts.sections or 3
-    local min_endpoints = opts.min_endpoints or 0
-    local max_endpoints = opts.max_endpoints or 3
+    local sections_count = opts.sections or 1
+    local endpoints_per_section = opts.endpoints_per_section or 1
     local servers = opts.servers or {}
-    local default_server = opts.default_server or 'default'
-    local allow_serverless = opts.allow_serverless ~= false
     local next_index = opts.start_index or 1
-    local path_prefix = opts.path_prefix or '/health-auto'
 
     assert(sections_count >= 1, 'opts.sections must be >= 1')
-    assert(max_endpoints >= min_endpoints, 'opts.max_endpoints must be >= opts.min_endpoints')
-
-    if opts.seed ~= nil then
-        math.randomseed(opts.seed)
-    end
+    assert(endpoints_per_section >= 1, 'opts.endpoints_per_section must be >= 1')
 
     local sections = {}
     local per_server = {}
 
-    for _, name in ipairs(servers) do
-        per_server[name] = per_server[name] or {}
-    end
-    per_server[default_server] = per_server[default_server] or {}
-
     for _ = 1, sections_count do
-        local section = {}
+        local server_token = servers[math.random(1, #servers+1)]
+        local server_name = server_token or 'default'
+        per_server[server_name] = per_server[server_name] or {}
+
         local endpoints = {}
-
-        local target_server = nil
-        if #servers > 0 then
-            local pool_size = #servers + (allow_serverless and 1 or 0)
-            local choice = math.random(1, pool_size)
-            if choice <= #servers then
-                target_server = servers[choice]
-                section.server = target_server
-            end
-        end
-
-        local endpoints_count = 0
-        if max_endpoints > 0 then
-            endpoints_count = math.random(min_endpoints, max_endpoints)
-        end
-
-        for _ = 1, endpoints_count do
-            local path = string.format('%s-%04d', path_prefix, next_index)
+        for _ = 1, math.random(0, endpoints_per_section) do
+            local path = string.format('/endpoint%d', next_index)
             next_index = next_index + 1
             table.insert(endpoints, { path = path })
-            per_server[target_server or default_server] =
-                per_server[target_server or default_server] or {}
-            table.insert(per_server[target_server or default_server], path)
+            table.insert(per_server[server_name], path)
         end
 
-        section.endpoints = endpoints
+        local section = { endpoints = endpoints }
+        if server_token then
+            section.server = server_token
+        end
+
         table.insert(sections, section)
     end
 
-    if opts.include_empty_section then
-        table.insert(sections, { endpoints = {} })
-    end
-
-    local all_paths = {}
-    for _, paths in pairs(per_server) do
-        for _, path in ipairs(paths) do
-            all_paths[path] = true
-        end
+    per_server['default'] = per_server['default'] or {}
+    for _, name in ipairs(servers) do
+        per_server[name] = per_server[name] or {}
     end
 
     return sections, {
         per_server = per_server,
-        all_paths = all_paths,
         next_index = next_index,
     }
 end

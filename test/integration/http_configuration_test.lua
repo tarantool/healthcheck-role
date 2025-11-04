@@ -6,9 +6,7 @@
 local t = require('luatest')
 local helpers = require('test.helpers.integration')
 local cbuilder = require('luatest.cbuilder')
-local http_client = require('http.client')
 
----@type luatest.group
 local g = t.group()
 
 --- Start a fresh cluster before each case.
@@ -362,24 +360,21 @@ g.test_http_config_mutations = function(cg)
     cg.cluster:reload(config:config())
 
     local path_index = 1
-    local iterations = 100
+    local iterations = 42
     local healthcheck_servers = {}
-    local previous_paths_by_server = {}
 
     for _, server in ipairs(servers) do
-        table.insert(healthcheck_servers, server.name)
+        if server.name ~= 'default' then
+            table.insert(healthcheck_servers, server.name)
+        end
     end
 
-    for iteration = 1, iterations do
+    for _ = 1, iterations do
         local sections, summary = helpers.generate_healthcheck_http_sections({
-            seed = 1000 + iteration,
-            sections = 4,
-            min_endpoints = 1,
-            max_endpoints = 3,
+            sections = 30,
+            endpoints_per_section = 3,
             servers = healthcheck_servers,
-            default_server = 'default',
             start_index = path_index,
-            include_empty_section = true,
         })
 
         path_index = summary.next_index
@@ -392,36 +387,23 @@ g.test_http_config_mutations = function(cg)
 
         cg.cluster:reload(config:config())
 
-        local current_paths_by_server = {}
-
         for _, server in ipairs(servers) do
             local expected_paths = summary.per_server[server.name] or {}
-            local expected_lookup = {}
+            local actual_count = cg.cluster['router']:exec(function(server_name)
+                local httpd_role = require('roles.httpd')
+                local srv = httpd_role.get_server(server_name)
+                local cnt = 0
+                for _ in pairs(srv.iroutes) do
+                    cnt = cnt + 1
+                end
+                return cnt
+            end, {server.name})
 
-            for _, path in ipairs(expected_paths) do
-                expected_lookup[path] = true
+            t.assert_equals(actual_count, #expected_paths, server.name)
+            for _, path in pairs(expected_paths) do
                 check_endpoint_existence(server.port, path)
             end
-
-            for path in pairs(summary.all_paths) do
-                if not expected_lookup[path] then
-                    check_endpoint_nonexistence(server.port, path)
-                end
-            end
-
-            local previous_paths = previous_paths_by_server[server.name]
-            if previous_paths ~= nil then
-                for path in pairs(previous_paths) do
-                    if not expected_lookup[path] then
-                        check_endpoint_nonexistence(server.port, path)
-                    end
-                end
-            end
-
-            current_paths_by_server[server.name] = expected_lookup
         end
-
-        previous_paths_by_server = current_paths_by_server
     end
 end
 
