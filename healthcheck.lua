@@ -53,13 +53,13 @@ function M.check_defaults()
         table.insert(details, details_consts.BOX_INFO_STATUS_NOT_RUNNING)
     end
 
-    -- if not M._check_snapshot_dir() then
-    --     table.insert(details, details_consts.DISK_ERROR_SNAPSHOT_DIR)
-    -- end
+    if not M._check_snapshot_dir() then
+        table.insert(details, details_consts.DISK_ERROR_SNAPSHOT_DIR)
+    end
 
-    -- if not M._check_wal_dir() then
-    --     table.insert(details, details_consts.DISK_ERROR_WAL_DIR)
-    -- end
+    if not M._check_wal_dir() then
+        table.insert(details, details_consts.DISK_ERROR_WAL_DIR)
+    end
 
     if #details > 0 then
         result = false
