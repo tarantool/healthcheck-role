@@ -38,7 +38,10 @@ local healthcheck_role_schema = schema.new('healthcheck_role', schema.record({
                 items = schema.record({
                     path = schema.scalar({
                         type = 'string',
-                    })
+                    }),
+                    format = schema.scalar({
+                        type = 'string',
+                    }),
                 })
             })
         })
@@ -47,6 +50,7 @@ local healthcheck_role_schema = schema.new('healthcheck_role', schema.record({
 
 --- @class EndpointConfig
 --- @field path string
+--- @field format string|nil
 
 --- @class RoleHttpConfig
 --- @field server string|nil
@@ -124,6 +128,83 @@ local function get_routes_to_delete(prev_conf, curr_conf)
     return to_delete
 end
 
+local function default_response(is_healthy, details)
+    if is_healthy then
+        return {
+            status = 200,
+            body = json.encode({
+                status = 'alive',
+            }),
+            headers = {
+                ['content-type'] = 'application/json',
+            }
+        }
+    end
+
+    return {
+        status = 500,
+        body = json.encode({
+            status = 'dead',
+            details = details,
+        }),
+        headers = {
+            ['content-type'] = 'application/json',
+        },
+    }
+end
+
+local function formatter_error_detail(format_name, reason)
+    if reason == nil then
+        return ("healthcheck format function '%s' is not defined"):format(format_name)
+    end
+    return ("healthcheck format function '%s' %s"):format(format_name, reason)
+end
+
+local function formatter_error_response(format_name, reason)
+    return default_response(false, {formatter_error_detail(format_name, reason)})
+end
+
+local function ensure_formatter_exists(format_name)
+    if format_name == nil then
+        return
+    end
+
+    -- box.cfg might be not initialized yet, guard box.func access
+    local fmt = box.func and box.func[format_name]
+    if fmt == nil or fmt.call == nil then
+        local msg = formatter_error_detail(format_name)
+        log.error(msg)
+        error(msg)
+    end
+end
+
+local function build_response(is_healthy, details, format_name)
+    if format_name ~= nil then
+        -- box.cfg might be not initialized yet, guard box.func access
+        local fmt = box.func and box.func[format_name]
+        if fmt == nil or fmt.call == nil then
+            log.error("healthcheck format function '%s' is not defined", format_name)
+            return formatter_error_response(format_name)
+        end
+
+        -- tarantool box.func:call expects argument list packed in a table
+        local ok, response = pcall(fmt.call, fmt, {is_healthy, details})
+        if not ok then
+            log.error("healthcheck format function '%s' failed: %s", format_name, tostring(response))
+            return formatter_error_response(format_name, 'failed to execute')
+        end
+
+        if type(response) ~= 'table' then
+            log.error("healthcheck format function '%s' returned non-table result", format_name)
+            return formatter_error_response(format_name, 'returned invalid response')
+        end
+
+        return response
+    end
+
+    return default_response(is_healthy, details)
+end
+
 function M.apply(conf)
     local new_conf = healthcheck_role_schema:apply_default(conf)
     for _, http_cfg in pairs(new_conf.http) do
@@ -139,6 +220,7 @@ function M.apply(conf)
         local server = httpd_role.get_server(http_cfg.server)
         for _, endpoint in pairs(http_cfg.endpoints) do
             local path = remove_side_slashes(endpoint.path)
+            ensure_formatter_exists(endpoint.format)
             if server.iroutes[path] == nil then
                 server:route({
                     method = "GET",
@@ -146,28 +228,7 @@ function M.apply(conf)
                     name = path,
                 }, wrap_handler(function()
                     local is_healthy, details = healthcheck.check_health()
-                    if is_healthy then
-                        return {
-                            status = 200,
-                            body = json.encode({
-                                status = 'alive',
-                            }),
-                            headers = {
-                                ['content-type'] = 'application/json',
-                            }
-                        }
-                    else
-                        return {
-                            status = 500,
-                            body = json.encode({
-                                status = 'dead',
-                                details = details,
-                            }),
-                            headers = {
-                                ['content-type'] = 'application/json',
-                            },
-                        }
-                    end
+                    return build_response(is_healthy, details, endpoint.format)
                 end))
                 log.info("set route, server: %s, path: %s", http_cfg.server, path)
             end

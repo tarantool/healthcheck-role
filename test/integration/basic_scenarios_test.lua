@@ -31,29 +31,27 @@ g.after_each(function(cg)
     cg.cluster:stop()
 end)
 
---- drop_custom_check removes the custom user check function.
+--- Drop previously registered custom check function.
 ---@param cluster LuatestCluster
----@param func_name string
-local function drop_custom_check(cluster, func_name)
+local function drop_custom_check(cluster)
     cluster['router']:exec(function(func_name)
         if box.func[func_name] ~= nil then
             box.schema.func.drop(func_name)
         end
-    end, {func_name})
+    end, {CUSTOM_CHECK_NAME})
 end
 
---- register_custom_check creates a user check function on router instance.
+--- Register custom check function body under predefined name.
 ---@param cluster LuatestCluster
----@param func_name string
 ---@param body string
-local function register_custom_check(cluster, func_name, body)
-    drop_custom_check(cluster, func_name)
-    cluster['router']:exec(function(name, func_body)
-        box.schema.func.create(name, {
+local function register_custom_check(cluster, body)
+    drop_custom_check(cluster)
+    cluster['router']:exec(function(func_name, func_body)
+        box.schema.func.create(func_name, {
             language = 'LUA',
             body = func_body,
         })
-    end, {func_name, body})
+    end, {CUSTOM_CHECK_NAME, body})
 end
 
 
@@ -168,7 +166,7 @@ g.test_custom_check = function(cg)
         :config()
     cg.cluster:reload(config)
 
-    register_custom_check(cg.cluster, CUSTOM_CHECK_NAME, [[
+    register_custom_check(cg.cluster, [[
         function()
             return true
         end
@@ -180,7 +178,7 @@ g.test_custom_check = function(cg)
         status = 'alive',
     })
 
-    drop_custom_check(cg.cluster, CUSTOM_CHECK_NAME)
+    drop_custom_check(cg.cluster)
 end
 
 --- ensure failing custom check propagates error to HTTP response
@@ -214,7 +212,7 @@ g.test_custom_check_not_ok = function(cg)
         :config()
     cg.cluster:reload(config)
 
-    register_custom_check(cg.cluster, CUSTOM_CHECK_NAME, [[
+    register_custom_check(cg.cluster, [[
         function()
             return false, "custom failure"
         end
@@ -227,5 +225,7 @@ g.test_custom_check_not_ok = function(cg)
         details = {string.format('%s: %s', CUSTOM_CHECK_NAME, 'custom failure')},
     })
 
-    drop_custom_check(cg.cluster, CUSTOM_CHECK_NAME)
+    drop_custom_check(cg.cluster)
 end
+
+-- custom format tests moved to test/integration/custom_format_test.lua
