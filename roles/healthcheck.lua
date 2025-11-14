@@ -4,14 +4,10 @@ local metrics = require('metrics')
 local healthcheck = require('healthcheck')
 local json = require('json')
 local schema = require('experimental.config.utils.schema')
-local config_module = require('config')
-
-local ALERTS_NAMESPACE = 'healthcheck'
+local alerts = require('alerts')
 
 local M = {
     prev_conf = nil,
-    alerts = nil,
-    active_alerts = {},
     set_alerts_enabled = false,
 }
 
@@ -31,42 +27,6 @@ local function remove_side_slashes(path)
         path = string.rstrip(path, '/')
     end
     return '/' .. path
-end
-
-local function ensure_alerts_namespace()
-    if M.alerts == nil then
-        M.alerts = config_module:new_alerts_namespace(ALERTS_NAMESPACE)
-    end
-end
-
-local function clear_all_alerts()
-    if M.alerts == nil then
-        M.active_alerts = {}
-        return
-    end
-
-    for name in pairs(M.active_alerts) do
-        M.alerts:unset(name)
-    end
-    M.active_alerts = {}
-end
-
-local function update_alerts(details_map)
-    ensure_alerts_namespace()
-    local seen = {}
-
-    for name, message in pairs(details_map or {}) do
-        seen[name] = true
-        M.alerts:set(name, {message = message})
-        M.active_alerts[name] = true
-    end
-
-    for name in pairs(M.active_alerts) do
-        if not seen[name] then
-            M.alerts:unset(name)
-            M.active_alerts[name] = nil
-        end
-    end
 end
 
 local function details_map_to_array(map)
@@ -282,7 +242,7 @@ function M.apply(conf)
     end
     M.set_alerts_enabled = new_conf.set_alerts
     if not M.set_alerts_enabled then
-        clear_all_alerts()
+        alerts.clear_all()
     end
 
     -- set new routes
@@ -299,7 +259,7 @@ function M.apply(conf)
                 }, wrap_handler(function()
                     local is_healthy, details_map = healthcheck.check_health()
                     if M.set_alerts_enabled then
-                        update_alerts(details_map)
+                        alerts.update(details_map)
                     end
                     local details = details_map_to_array(details_map)
                     return build_response(is_healthy, details, endpoint.format)
@@ -328,8 +288,8 @@ end
 
 function M.stop()
     -- deletes all routes
+    alerts.clear_all()
     if M.prev_conf == nil then
-        clear_all_alerts()
         return
     end
 
@@ -348,8 +308,6 @@ function M.stop()
         ::continue::
     end
 
-    clear_all_alerts()
-    M.alerts = nil
     M.set_alerts_enabled = false
 end
 
