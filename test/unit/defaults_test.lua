@@ -41,7 +41,7 @@ g.test_snapshot_dir_failure = function(cg)
     local ok, details = healthcheck.check_defaults()
     t.assert_equals(ok, false)
     t.assert_equals(details, {
-        details_consts.DISK_ERROR_SNAPSHOT_DIR,
+        check_snapshot_dir = details_consts.DISK_ERROR_SNAPSHOT_DIR,
     })
 end
 
@@ -55,7 +55,7 @@ g.test_wal_dir_failure = function(cg)
     local ok, details = healthcheck.check_defaults()
     t.assert_equals(ok, false)
     t.assert_equals(details, {
-        details_consts.DISK_ERROR_WAL_DIR,
+        check_wal_dir = details_consts.DISK_ERROR_WAL_DIR,
     })
 end
 
@@ -69,9 +69,8 @@ g.test_multiple_failures = function(cg)
     local ok, details = healthcheck.check_defaults()
     t.assert_equals(ok, false)
     t.assert_equals(details, {
-        details_consts.BOX_INFO_STATUS_NOT_RUNNING,
-        details_consts.DISK_ERROR_SNAPSHOT_DIR,
-        details_consts.DISK_ERROR_WAL_DIR,
+        check_box_info_status = details_consts.BOX_INFO_STATUS_NOT_RUNNING,
+        check_snapshot_dir = details_consts.DISK_ERROR_SNAPSHOT_DIR,
+        check_wal_dir = details_consts.DISK_ERROR_WAL_DIR,
     })
 end
-
