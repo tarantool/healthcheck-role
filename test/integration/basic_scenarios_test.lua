@@ -10,6 +10,11 @@ local http_client = require('http.client')
 local g = t.group()
 
 local CUSTOM_CHECK_NAME = 'healthcheck.check_integration'
+local function fetch_alerts(cluster)
+    return cluster['router']:exec(function()
+        return box.info.config.alerts or {}
+    end)
+end
 
 --- Start a fresh cluster before each case.
 ---@param cg basic_test_context
@@ -228,4 +233,54 @@ g.test_custom_check_not_ok = function(cg)
     drop_custom_check(cg.cluster)
 end
 
--- custom format tests moved to test/integration/custom_format_test.lua
+--- custom check failure raises alert when set_alerts enabled
+---@param cg basic_test_context
+g.test_custom_check_alert = function(cg)
+    local config = cbuilder:new()
+        :use_group('routers')
+        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
+        :set_group_option('roles_cfg', {
+            ['roles.healthcheck'] = {
+                set_alerts = true,
+                http = {
+                    {
+                        endpoints = {
+                            {
+                                path = '/healthcheck',
+                            },
+                        },
+                    },
+                },
+            },
+        })
+        :use_replicaset('router')
+        :add_instance('router', {})
+        :set_instance_option('router', 'roles_cfg', {
+            ['roles.httpd'] = {
+                default = {
+                    listen = 8081,
+                },
+            },
+        })
+        :config()
+    cg.cluster:reload(config)
+
+    register_custom_check(cg.cluster, [[
+        function()
+            return false, "custom alert failure"
+        end
+    ]])
+
+    local resp = helpers.http_get(8081, '/healthcheck')
+    t.assert_equals(resp.status, 500)
+    t.assert_equals(resp:decode(), {
+        status = 'dead',
+        details = {string.format('%s: %s', CUSTOM_CHECK_NAME, 'custom alert failure')},
+    })
+
+    local alerts = fetch_alerts(cg.cluster)
+    t.assert_equals(#alerts, 1)
+    t.assert_str_contains(alerts[1].message, 'custom alert failure')
+
+    drop_custom_check(cg.cluster)
+end

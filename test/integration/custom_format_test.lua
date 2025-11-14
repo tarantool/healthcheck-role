@@ -145,7 +145,9 @@ g.test_custom_format_not_ok = function(cg)
     ]])
 
     reload_healthcheck_with_format(cg.cluster)
-    helpers.mock_healthcheck(cg.cluster, false, {'custom failure'})
+    helpers.mock_healthcheck(cg.cluster, false, {
+        check_box_info_status = 'custom failure',
+    })
 
     local resp = helpers.http_get(8081,'/healthcheck')
     t.assert_equals(resp.status, 560)

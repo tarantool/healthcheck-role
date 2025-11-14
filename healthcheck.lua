@@ -10,8 +10,11 @@ local USER_CHECK_PREFIX = 'healthcheck.check_'
 local M = {}
 
 local function extend_details(dst, src)
-    for _, value in ipairs(src) do
-        table.insert(dst, value)
+    if src == nil then
+        return
+    end
+    for name, message in pairs(src) do
+        dst[name] = message
     end
 end
 
@@ -19,7 +22,7 @@ end
 --- - default checks
 --- - user defined checks
 --- - additional checks
----@return boolean, table<number, string>
+---@return boolean, table<string, string>
 function M.check_health()
     local overall_result = true
     local all_details = {}
@@ -45,23 +48,26 @@ end
 --- - box.info.status == 'running'
 --- - snapshot dir exists
 --- - wal dir exists
----@return boolean, table<number, string>
+---@return boolean, table<string, string>
 function M.check_defaults()
     local result = true
     local details = {}
-    if not M._check_box_info_status() then
-        table.insert(details, details_consts.BOX_INFO_STATUS_NOT_RUNNING)
+
+    local ok_box = M._check_box_info_status()
+    if not ok_box then
+        details['check_box_info_status'] = details_consts.BOX_INFO_STATUS_NOT_RUNNING
+        result = false
     end
 
-    if not M._check_snapshot_dir() then
-        table.insert(details, details_consts.DISK_ERROR_SNAPSHOT_DIR)
+    local ok_snapshot = M._check_snapshot_dir()
+    if not ok_snapshot then
+        details['check_snapshot_dir'] = details_consts.DISK_ERROR_SNAPSHOT_DIR
+        result = false
     end
 
-    if not M._check_wal_dir() then
-        table.insert(details, details_consts.DISK_ERROR_WAL_DIR)
-    end
-
-    if #details > 0 then
+    local ok_wal = M._check_wal_dir()
+    if not ok_wal then
+        details['check_wal_dir'] = details_consts.DISK_ERROR_WAL_DIR
         result = false
     end
 
@@ -108,12 +114,12 @@ function M._check_snapshot_dir()
 end
 
 function M.check_additional()
-    
+    return true, {}
 end
 
 --- check_user_checks executes user-defined checks registered in _func space.
 --- box functions must start with healthcheck.check_ prefix and return boolean[, string].
----@return boolean, table<number, string>
+---@return boolean, table<string, string>
 function M.check_user_checks()
     local result = true
     local details = {}
@@ -132,14 +138,14 @@ function M.check_user_checks()
         local func = box.func[func_name]
         if func == nil or func.call == nil then
             result = false
-            table.insert(details, string.format('%s: function is not available', func_name))
+            details[func_name] = string.format('%s: function is not available', func_name)
             break
         end
 
         local ok, check_res, err_detail = pcall(func.call, func)
         if not ok then
             result = false
-            table.insert(details, string.format('%s: %s', func_name, tostring(check_res)))
+            details[func_name] = string.format('%s: %s', func_name, tostring(check_res))
             break
         end
 
@@ -151,7 +157,7 @@ function M.check_user_checks()
         if not check_res then
             result = false
             local reason = err_detail ~= nil and tostring(err_detail) or 'condition is not met'
-            table.insert(details, string.format('%s: %s', func_name, reason))
+            details[func_name] = string.format('%s: %s', func_name, reason)
         end
 
         processed = processed + 1

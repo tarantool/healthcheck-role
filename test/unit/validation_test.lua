@@ -6,6 +6,7 @@ local healthcheck_role = require('roles.healthcheck')
 -- ensure a typical configuration passes schema validation
 function g.test_valid_config()
     local cfg = {
+        set_alerts = true,
         http = {
             {
                 server = 'default',
@@ -73,6 +74,26 @@ function g.test_invalid_format_type()
 
     t.assert_error_msg_contains(
         'http[1].endpoints[1].format',
+        function()
+            healthcheck_role.validate(cfg)
+        end
+    )
+end
+
+function g.test_invalid_set_alerts_type()
+    local cfg = {
+        set_alerts = 'yes',
+        http = {
+            {
+                endpoints = {
+                    { path = '/healthz' },
+                },
+            },
+        },
+    }
+
+    t.assert_error_msg_contains(
+        'set_alerts',
         function()
             healthcheck_role.validate(cfg)
         end

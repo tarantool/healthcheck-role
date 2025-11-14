@@ -73,8 +73,9 @@ end
 --- 
 --- @param cluster LuatestCluster
 --- @param is_healthy boolean
---- @param details table<number,string>|nil
+--- @param details table<string,string>|nil
 function helpers.mock_healthcheck(cluster, is_healthy, details)
+    details = details or {}
     cluster:each(function(server)
         server:exec(function(is_healthy, details)
             local healthcheck = require('healthcheck')
@@ -82,7 +83,7 @@ function helpers.mock_healthcheck(cluster, is_healthy, details)
                 rawset(_G, '_healthcheck_check_health_orig', healthcheck.check_health)
             end
             healthcheck.check_health = function ()
-                return is_healthy, details
+                return is_healthy, table.deepcopy(details)
             end
         end, {is_healthy, details})
     end)
