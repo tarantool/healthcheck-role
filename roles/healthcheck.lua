@@ -5,10 +5,13 @@ local healthcheck = require('healthcheck')
 local json = require('json')
 local schema = require('experimental.config.utils.schema')
 local alerts = require('alerts')
+local ratelim = require('ratelim')
 
 local M = {
+    ---@type RoleConfig|nil
     prev_conf = nil,
     set_alerts_enabled = false,
+    limiter = nil,
 }
 
 local function wrap_handler(handler)
@@ -52,6 +55,15 @@ local healthcheck_role_schema = schema.new('healthcheck_role', schema.record({
         type = 'boolean',
         default = false,
     }),
+    ratelim_rps = schema.scalar({
+        type = 'number',
+        default = box.NULL,
+        validate = function(ratelim_rps, w)
+            if ratelim_rps ~= box.NULL and ratelim_rps <= 0 then
+                w.error("ratelim_rps must be positive or null, got %s", ratelim_rps)
+            end
+        end
+    }),
     http = schema.array({
         items = schema.record({
             server = schema.scalar({
@@ -83,6 +95,7 @@ local healthcheck_role_schema = schema.new('healthcheck_role', schema.record({
 --- @class RoleConfig
 --- @field http table<number,RoleHttpConfig>
 --- @field set_alerts boolean|nil
+--- @field ratelim_rps number|box.NULL|nil
 --- @param conf RoleConfig
 function M.validate(conf)
     healthcheck_role_schema:validate(conf)
@@ -178,6 +191,18 @@ local function default_response(is_healthy, details)
     }
 end
 
+local function ratelimit_response()
+    return {
+        status = 429,
+        body = json.encode({
+            status = 'rate limit exceeded',
+        }),
+        headers = {
+            ['content-type'] = 'application/json',
+        },
+    }
+end
+
 local function formatter_error_detail(format_name, reason)
     if reason == nil then
         return ("healthcheck format function '%s' is not defined"):format(format_name)
@@ -232,6 +257,9 @@ end
 
 function M.apply(conf)
     local new_conf = healthcheck_role_schema:apply_default(conf)
+
+    M.apply_ratelim(new_conf.ratelim_rps)
+
     for _, http_cfg in pairs(new_conf.http) do
         local server = httpd_role.get_server(http_cfg.server)
         if server == nil then
@@ -257,6 +285,12 @@ function M.apply(conf)
                     path = path,
                     name = path,
                 }, wrap_handler(function()
+                    if M.limiter ~= nil then
+                        local allowed = M.limiter:wait(0)
+                        if not allowed then
+                            return ratelimit_response()
+                        end
+                    end
                     local is_healthy, details_map = healthcheck.check_health()
                     if M.set_alerts_enabled then
                         alerts.update(details_map)
@@ -286,9 +320,23 @@ function M.apply(conf)
     M.prev_conf = table.deepcopy(new_conf)
 end
 
+
+---sets ratelimitter
+---@param ratelim number|box.NULL
+function M.apply_ratelim(rps)
+    if rps == nil or rps == box.NULL then
+        M.limiter = nil
+        return
+    end
+    local burst = math.max(1, math.floor(rps))
+    M.limiter = ratelim.new("healthcheck", rps, burst)
+end
+
 function M.stop()
-    -- deletes all routes
+    M.limiter = nil
     alerts.clear_all()
+
+    -- deletes all routes
     if M.prev_conf == nil then
         return
     end

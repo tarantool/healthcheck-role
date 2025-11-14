@@ -7,6 +7,7 @@ local healthcheck_role = require('roles.healthcheck')
 function g.test_valid_config()
     local cfg = {
         set_alerts = true,
+        ratelim_rps = 5,
         http = {
             {
                 server = 'default',
@@ -94,6 +95,26 @@ function g.test_invalid_set_alerts_type()
 
     t.assert_error_msg_contains(
         'set_alerts',
+        function()
+            healthcheck_role.validate(cfg)
+        end
+    )
+end
+
+function g.test_invalid_ratelim_value()
+    local cfg = {
+        ratelim_rps = -1,
+        http = {
+            {
+                endpoints = {
+                    { path = '/healthz' },
+                },
+            },
+        },
+    }
+
+    t.assert_error_msg_contains(
+        'ratelim_rps',
         function()
             healthcheck_role.validate(cfg)
         end

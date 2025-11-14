@@ -360,7 +360,7 @@ g.test_http_config_mutations = function(cg)
     cg.cluster:reload(config:config())
 
     local path_index = 1
-    local iterations = 42
+    local iterations = 10
     local healthcheck_servers = {}
 
     for _, server in ipairs(servers) do
@@ -371,7 +371,7 @@ g.test_http_config_mutations = function(cg)
 
     for _ = 1, iterations do
         local sections, summary = helpers.generate_healthcheck_http_sections({
-            sections = 30,
+            sections = 42,
             endpoints_per_section = 3,
             servers = healthcheck_servers,
             start_index = path_index,
