@@ -7,6 +7,7 @@ deps:
 build:
 	tt rocks make
 
+.PHONY: test
 test:
 	.rocks/bin/luatest -v --coverage --shuffle all
 
