@@ -73,6 +73,8 @@ function M.check_health(filter)
         local ok, details = checker()
         if not ok then
             overall_result = false
+            log.error("!!!!!")
+            log.error(require('json').encode(details))
             extend_details(all_details, details)
         end
     end
@@ -223,7 +225,7 @@ function M.check_user_checks(filter)
         local ok, check_res, err_detail = pcall(func.call, func)
         if not ok then
             result = false
-            details[func_name] = string.format('%s: %s', func_name, tostring(check_res))
+            details[func_name] = tostring(check_res)
             break
         end
 
@@ -235,7 +237,7 @@ function M.check_user_checks(filter)
         if not check_res then
             result = false
             local reason = err_detail ~= nil and tostring(err_detail) or 'condition is not met'
-            details[func_name] = string.format('%s: %s', func_name, reason)
+            details[func_name] = reason
         end
 
         processed = processed + 1

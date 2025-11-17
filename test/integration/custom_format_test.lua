@@ -151,7 +151,7 @@ g.test_custom_format_not_ok = function(cg)
 
     local resp = helpers.http_get(8081,'/healthcheck')
     t.assert_equals(resp.status, 560)
-    t.assert_equals(resp:decode(), { errors = {'custom failure'} })
+    t.assert_equals(resp:decode(), { errors = {'check_box_info_status: custom failure'} })
 
     helpers.unmock_healthcheck(cg.cluster)
     drop_custom_format(cg.cluster)
