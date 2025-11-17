@@ -8,6 +8,7 @@ local details_consts = require('details_consts')
 local USER_CHECK_PREFIX = 'healthcheck.check_'
 
 local M = {}
+local additional_checks = {}
 
 local function extend_details(dst, src)
     if src == nil then
@@ -22,14 +23,29 @@ end
 --- - default checks
 --- - user defined checks
 --- - additional checks
+---@class CheckFilter
+---@field include string[]|nil
+---@field exclude string[]|nil
+---@field include_all boolean|nil
+---@class CheckFilterNormalized
+---@field include table<string, boolean>
+---@field exclude table<string, boolean>
+---@field include_all boolean
+---@param filter CheckFilter|nil
 ---@return boolean, table<string, string>
-function M.check_health()
+function M.check_health(filter)
+    local normalized_filter = M._normalize_filter(filter)
     local overall_result = true
     local all_details = {}
 
     local handlers = {
         M.check_defaults,
-        M.check_user_checks,
+        function()
+            return M.check_user_checks(normalized_filter)
+        end,
+        function()
+            return M.check_additional(normalized_filter)
+        end,
     }
 
     for _, checker in ipairs(handlers) do
@@ -113,14 +129,46 @@ function M._check_snapshot_dir()
     return fio.lstat(path)
 end
 
-function M.check_additional()
-    return true, {}
+--- check_additional executes optional built-in checks controlled by include/exclude filter.
+--- By default include_all=true so all additional checks run; set include manually to opt in specific ones.
+---@param filter CheckFilterNormalized
+---@return boolean, table<string, string>
+function M.check_additional(filter)
+    local result = true
+    local details = {}
+
+    for name, fn in pairs(additional_checks) do
+        if filter.exclude[name] then
+            goto continue
+        end
+
+        if not filter.include_all and filter.include[name] ~= true then
+            goto continue
+        end
+
+        local ok, check_ok, check_message = pcall(fn)
+        if not ok then
+            result = false
+            details[name] = string.format('%s: %s', name, tostring(check_ok))
+            goto continue
+        end
+
+        if check_ok ~= true then
+            result = false
+            details[name] = check_message or string.format('%s: condition is not met', name)
+        end
+        ::continue::
+    end
+
+    return result, details
 end
 
 --- check_user_checks executes user-defined checks registered in _func space.
 --- box functions must start with healthcheck.check_ prefix and return boolean[, string].
+--- user defined checks will not be executed only if they directly added `exlcude`
+---@param filter CheckFilterNormalized
 ---@return boolean, table<string, string>
-function M.check_user_checks()
+function M.check_user_checks(filter)
     local result = true
     local details = {}
 
@@ -133,6 +181,10 @@ function M.check_user_checks()
         local func_name = func_tuple.name
         if type(func_name) ~= 'string' or not func_name:startswith(USER_CHECK_PREFIX) then
             break
+        end
+        
+        if filter.exclude[func_name] ~= nil then
+            goto continue
         end
 
         local func = box.func[func_name]
@@ -164,9 +216,55 @@ function M.check_user_checks()
         if processed % 100 == 0 then
             fiber.yield()
         end
+        ::continue::
     end
 
     return result, details
+end
+
+---@type table<string,boolean>
+local all_includes = {
+    replication = true,
+}
+
+---@param list table|nil
+---@return table<string, boolean>
+local function normalize_to_set(list)
+    if list == nil then
+        return {}
+    end
+
+    local result = {}
+    for _, value in pairs(list) do
+        if type(value) == 'string' then
+            result[value] = true
+        end
+    end
+
+    return result
+end
+
+--- normalize_filter adds default values to CheckFilter
+--- @param filter CheckFilter|nil
+--- @return CheckFilterNormalized
+function M._normalize_filter(filter)
+    ---@type CheckFilterNormalized
+    filter = filter or {}
+    local include = normalize_to_set(filter.include)
+    local exclude = normalize_to_set(filter.exclude)
+    local include_all = filter.include_all
+    if include_all == nil then
+        include_all = (filter.include == nil) or include['all'] == true
+    end
+    if include_all then
+        include = table.deepcopy(all_includes)
+    else
+        include['all'] = nil
+    end
+    filter.exclude = exclude
+    filter.include_all = include_all
+    filter.include = include
+    return filter
 end
 
 return M

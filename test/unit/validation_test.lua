@@ -120,3 +120,26 @@ function g.test_invalid_ratelim_value()
         end
     )
 end
+
+function g.test_invalid_checks_type()
+    local cfg = {
+        checks = {
+            include = {1},
+            exclude = {'healthcheck.check_custom'},
+        },
+        http = {
+            {
+                endpoints = {
+                    { path = '/healthz' },
+                },
+            },
+        },
+    }
+
+    t.assert_error_msg_contains(
+        'checks.include',
+        function()
+            healthcheck_role.validate(cfg)
+        end
+    )
+end
