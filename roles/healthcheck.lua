@@ -12,6 +12,8 @@ local M = {
     prev_conf = nil,
     set_alerts_enabled = false,
     limiter = nil,
+    ---@type CheckFilter|nil
+    check_filter = nil,
 }
 
 local function wrap_handler(handler)
@@ -64,6 +66,22 @@ local healthcheck_role_schema = schema.new('healthcheck_role', schema.record({
             end
         end
     }),
+    checks = schema.record({
+        include = schema.array({
+            items = schema.scalar({
+                type = 'string',
+            }),
+            default = {'all'},
+        }),
+        exclude = schema.array({
+            items = schema.scalar({
+                type = 'string',
+            }),
+            default = {},
+        }),
+    }, {
+        default = {},
+    }),
     http = schema.array({
         items = schema.record({
             server = schema.scalar({
@@ -96,6 +114,7 @@ local healthcheck_role_schema = schema.new('healthcheck_role', schema.record({
 --- @field http table<number,RoleHttpConfig>
 --- @field set_alerts boolean|nil
 --- @field ratelim_rps number|box.NULL|nil
+--- @field checks table|nil
 --- @param conf RoleConfig
 function M.validate(conf)
     healthcheck_role_schema:validate(conf)
@@ -258,6 +277,7 @@ end
 function M.apply(conf)
     local new_conf = healthcheck_role_schema:apply_default(conf)
 
+    M.check_filter = new_conf.checks
     M.apply_ratelim(new_conf.ratelim_rps)
 
     for _, http_cfg in pairs(new_conf.http) do
@@ -291,7 +311,7 @@ function M.apply(conf)
                             return ratelimit_response()
                         end
                     end
-                    local is_healthy, details_map = healthcheck.check_health()
+                    local is_healthy, details_map = healthcheck.check_health(M.check_filter)
                     if M.set_alerts_enabled then
                         alerts.update(details_map)
                     end
@@ -334,6 +354,7 @@ end
 
 function M.stop()
     M.limiter = nil
+    M.check_filter = nil
     alerts.clear_all()
 
     -- deletes all routes

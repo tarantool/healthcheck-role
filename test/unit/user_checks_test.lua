@@ -29,7 +29,7 @@ g.test_user_check_success = function(cg)
         end
     ]])
 
-    local ok, details = healthcheck.check_user_checks()
+    local ok, details = healthcheck.check_user_checks(healthcheck._normalize_filter())
     t.assert_equals(ok, true)
     t.assert_equals(details, {})
 end
@@ -43,7 +43,7 @@ g.test_user_check_failure = function(cg)
         end
     ]])
 
-    local ok, details = healthcheck.check_user_checks()
+    local ok, details = healthcheck.check_user_checks(healthcheck._normalize_filter())
     t.assert_equals(ok, false)
     t.assert_equals(details, {
         ['healthcheck.check_failure'] = 'healthcheck.check_failure: condition not met',
@@ -59,7 +59,7 @@ g.test_user_check_error = function(cg)
         end
     ]])
 
-    local ok, details = healthcheck.check_user_checks()
+    local ok, details = healthcheck.check_user_checks(healthcheck._normalize_filter())
     t.assert_equals(ok, false)
     t.assert(details['healthcheck.check_error']:find('healthcheck.check_error: ', 1, true) ~= nil)
     t.assert(details['healthcheck.check_error']:find('unexpected failure', 1, true) ~= nil)
@@ -75,7 +75,7 @@ g.test_user_check_invalid_format = function(cg)
     ]])
 
     local restore_warn, warnings = unit_helpers.stub_logger(logger, 'warn')
-    local ok, details = healthcheck.check_user_checks()
+    local ok, details = healthcheck.check_user_checks(healthcheck._normalize_filter())
     restore_warn()
 
     t.assert_equals(ok, true)
@@ -102,7 +102,25 @@ g.test_user_check_prefix_filter = function(cg)
         end
     ]])
 
-    local ok, details = healthcheck.check_user_checks()
+    local ok, details = healthcheck.check_user_checks(healthcheck._normalize_filter())
     t.assert_equals(ok, true)
     t.assert_equals(details, {})
+end
+
+---ignore function if it appears in filter.exclude
+---@param cg table
+g.test_ignore_excluded_filter = function(cg)
+    create_func(cg, 'healthcheck.check_check', [[
+        function()
+            return false, "error"
+        end
+    ]])
+
+    local ok, details = healthcheck.check_user_checks(healthcheck._normalize_filter({exclude = {'healthcheck.check_check'}}))
+    t.assert_equals(ok, true)
+    t.assert_equals(details, {})
+
+    ok, details = healthcheck.check_user_checks(healthcheck._normalize_filter())
+    t.assert_equals(ok, false)
+    t.assert_equals(details, {["healthcheck.check_check"] = "healthcheck.check_check: error"})
 end
