@@ -4,11 +4,32 @@ local fio = require('fio')
 local log = require('logger')
 
 local details_consts = require('details_consts')
+local replication_checks = require('replication_checks')
 
 local USER_CHECK_PREFIX = 'healthcheck.check_'
 
 local M = {}
-local additional_checks = {}
+local additional_checks = {
+    replication = {
+        upstream_absent = replication_checks.check_upstream_absent,
+        state_bad = replication_checks.check_state_bad,
+    },
+}
+
+local all_includes = {
+    replication = true,
+}
+
+local function is_additional_check_enabled(group_name, check_name, filter)
+    local full_name = string.format('%s.%s', group_name, check_name)
+    if filter.exclude[full_name] or filter.exclude[group_name] then
+        return false
+    end
+    if filter.include_all then
+        return true
+    end
+    return filter.include[full_name] ~= nil or filter.include[group_name] ~= nil
+end
 
 local function extend_details(dst, src)
     if src == nil then
@@ -129,6 +150,7 @@ function M._check_snapshot_dir()
     return fio.lstat(path)
 end
 
+
 --- check_additional executes optional built-in checks controlled by include/exclude filter.
 --- By default include_all=true so all additional checks run; set include manually to opt in specific ones.
 ---@param filter CheckFilterNormalized
@@ -137,27 +159,31 @@ function M.check_additional(filter)
     local result = true
     local details = {}
 
-    for name, fn in pairs(additional_checks) do
-        if filter.exclude[name] then
-            goto continue
-        end
+    for group_name, group in pairs(additional_checks) do
+        for name, fn in pairs(group) do
+            if not is_additional_check_enabled(group_name, name, filter) then
+                goto continue
+            end
 
-        if not filter.include_all and filter.include[name] ~= true then
-            goto continue
-        end
+            local ok, check_ok, check_details = pcall(fn)
+            if not ok then
+                result = false
+                local full_name = string.format('%s.%s', group_name, name)
+                details[full_name] = string.format('%s: %s', full_name, tostring(check_ok))
+                goto continue
+            end
 
-        local ok, check_ok, check_message = pcall(fn)
-        if not ok then
-            result = false
-            details[name] = string.format('%s: %s', name, tostring(check_ok))
-            goto continue
+            if check_ok ~= true then
+                result = false
+                if type(check_details) == 'table' then
+                    extend_details(details, check_details)
+                else
+                    local full_name = string.format('%s.%s', group_name, name)
+                    details[full_name] = check_details or string.format('%s: condition is not met', full_name)
+                end
+            end
+            ::continue::
         end
-
-        if check_ok ~= true then
-            result = false
-            details[name] = check_message or string.format('%s: condition is not met', name)
-        end
-        ::continue::
     end
 
     return result, details
@@ -221,11 +247,6 @@ function M.check_user_checks(filter)
 
     return result, details
 end
-
----@type table<string,boolean>
-local all_includes = {
-    replication = true,
-}
 
 ---@param list table|nil
 ---@return table<string, boolean>
