@@ -162,14 +162,14 @@ g.test_basic_not_ok = function (cg)
         :config()
     cg.cluster:reload(config)
     helpers.mock_healthcheck(cg.cluster, false, {
-        details.BOX_INFO_STATUS_NOT_RUNNING,
+        check_box_info_status = details.BOX_INFO_STATUS_NOT_RUNNING,
     })
 
     local resp = helpers.http_get(8081,'/healthcheck')
     t.assert_equals(resp.status, 500)
     t.assert_equals(resp:decode(), {
         status = 'dead',
-        details = {details.BOX_INFO_STATUS_NOT_RUNNING},
+        details = {("check_box_info_status: %s"):format(details.BOX_INFO_STATUS_NOT_RUNNING)},
     })
 end
 

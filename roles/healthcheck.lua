@@ -47,7 +47,7 @@ local function details_map_to_array(map)
 
     local result = {}
     for _, name in ipairs(keys) do
-        table.insert(result, map[name])
+        table.insert(result, name .. ": " .. map[name])
     end
     return result
 end

@@ -64,7 +64,9 @@ function helpers.create_test_cluster(config)
         }
     }
 
-    local cluster = luatest_cluster:new(config, server_opts, {dir = fio.pathjoin(root, 'tmp')})
+    local cluster_dir = fio.pathjoin(root, 'tmp')
+    fio.rmtree(cluster_dir)
+    local cluster = luatest_cluster:new(config, server_opts, {dir = cluster_dir})
     ---@cast cluster LuatestCluster
     return cluster
 end
