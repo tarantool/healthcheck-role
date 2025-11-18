@@ -2,7 +2,7 @@ local t = require('luatest')
 local g = t.group()
 
 local healthcheck = require('healthcheck')
-local details_consts = require('details_consts')
+local details_consts = healthcheck.DETAILS
 
 local function stub_checker(cg, field, fn)
     cg.originals[field] = cg.originals[field] or healthcheck[field]

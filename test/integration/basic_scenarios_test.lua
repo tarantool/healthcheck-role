@@ -3,7 +3,7 @@
 local t = require('luatest')
 local helpers = require('test.helpers.integration')
 local cbuilder = require('luatest.cbuilder')
-local details = require('details_consts')
+local details = require('healthcheck').DETAILS
 
 ---@type luatest.group
 local g = t.group()

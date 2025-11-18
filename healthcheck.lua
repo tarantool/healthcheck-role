@@ -3,10 +3,14 @@ local fiber = require('fiber')
 local fio = require('fio')
 local log = require('logger')
 
-local details_consts = require('details_consts')
 local replication_checks = require('replication_checks')
 
 local USER_CHECK_PREFIX = 'healthcheck.check_'
+local DETAILS = {
+    BOX_INFO_STATUS_NOT_RUNNING = 'box.info.status is not running',
+    DISK_ERROR_SNAPSHOT_DIR = 'failed to write to snapshot dir',
+    DISK_ERROR_WAL_DIR = 'failed to write to wal dir',
+}
 
 local M = {}
 local additional_checks = {
@@ -92,19 +96,19 @@ function M.check_defaults()
 
     local ok_box = M._check_box_info_status()
     if not ok_box then
-        details['check_box_info_status'] = details_consts.BOX_INFO_STATUS_NOT_RUNNING
+        details['check_box_info_status'] = DETAILS.BOX_INFO_STATUS_NOT_RUNNING
         result = false
     end
 
     local ok_snapshot = M._check_snapshot_dir()
     if not ok_snapshot then
-        details['check_snapshot_dir'] = details_consts.DISK_ERROR_SNAPSHOT_DIR
+        details['check_snapshot_dir'] = DETAILS.DISK_ERROR_SNAPSHOT_DIR
         result = false
     end
 
     local ok_wal = M._check_wal_dir()
     if not ok_wal then
-        details['check_wal_dir'] = details_consts.DISK_ERROR_WAL_DIR
+        details['check_wal_dir'] = DETAILS.DISK_ERROR_WAL_DIR
         result = false
     end
 
@@ -287,5 +291,7 @@ function M._normalize_filter(filter)
     filter.include = include
     return filter
 end
+
+M.DETAILS = DETAILS
 
 return M
