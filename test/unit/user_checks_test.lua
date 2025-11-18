@@ -2,7 +2,7 @@ local t = require('luatest')
 local g = t.group()
 
 local healthcheck = require('healthcheck')
-local logger = require('logger')
+local logger = require('healthcheck.logger')
 local unit_helpers = require('test.helpers.unit')
 
 local function create_func(cg, name, body)

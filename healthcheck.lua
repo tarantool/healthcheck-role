@@ -1,9 +1,9 @@
 local config = require('config')
 local fiber = require('fiber')
 local fio = require('fio')
-local log = require('logger')
+local log = require('healthcheck.logger')
 
-local replication_checks = require('replication_checks')
+local replication_checks = require('healthcheck.replication_checks')
 
 local USER_CHECK_PREFIX = 'healthcheck.check_'
 local DETAILS = {

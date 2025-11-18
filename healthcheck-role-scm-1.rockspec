@@ -13,13 +13,19 @@ description = {
 
 dependencies = {
     "lua >= 5.1",
-    "tarantool >= 3.0.2",
-    "http == scm-1",
+    "tarantool >= 3.1.0",
+    "http == 1.9.0",
 }
 
 build = {
     type = "builtin",
     modules = {
-        ["roles.healthcheck"] = "roles/healthcheck.lua"
+        ["roles.healthcheck"] = "roles/healthcheck.lua",
+        ["healthcheck"] = "healthcheck.lua",
+        ["healthcheck/alerts"] = "healthcheck/alerts.lua",
+        ["healthcheck/logger"] = "healthcheck/logger.lua",
+        ["healthcheck/ratelim"] = "healthcheck/ratelim.lua",
+        ["healthcheck/replication_checks"] = "healthcheck/replication_checks.lua",
+        ["healthcheck/version"] = "healthcheck/VERSION.lua",
     }
 }

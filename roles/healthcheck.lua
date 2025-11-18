@@ -1,11 +1,11 @@
 local httpd_role = require('roles.httpd')
-local log = require('logger')
+local log = require('healthcheck.logger')
 local metrics = require('metrics')
 local healthcheck = require('healthcheck')
 local json = require('json')
 local schema = require('experimental.config.utils.schema')
-local alerts = require('alerts')
-local ratelim = require('ratelim')
+local alerts = require('healthcheck.alerts')
+local ratelim = require('healthcheck.ratelim')
 
 local M = {
     ---@type RoleConfig|nil
