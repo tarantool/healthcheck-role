@@ -5,7 +5,7 @@ local helpers = require('test.helpers.integration')
 local cbuilder = require('luatest.cbuilder')
 
 ---@type luatest.group
-local g = t.group('alerts')
+local g = t.group()
 
 local function build_config(set_alerts)
     return cbuilder:new()

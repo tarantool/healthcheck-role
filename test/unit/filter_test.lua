@@ -1,5 +1,5 @@
 local t = require('luatest')
-local g = t.group('filter')
+local g = t.group()
 
 local healthcheck = require('healthcheck')
 

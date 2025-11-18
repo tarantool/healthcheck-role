@@ -1,5 +1,5 @@
 local t = require('luatest')
-local g = t.group('defaults')
+local g = t.group()
 
 local healthcheck = require('healthcheck')
 local details_consts = require('details_consts')

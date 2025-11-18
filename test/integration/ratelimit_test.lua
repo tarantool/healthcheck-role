@@ -2,10 +2,9 @@ local t = require('luatest')
 local helpers = require('test.helpers.integration')
 local cbuilder = require('luatest.cbuilder')
 local fiber = require('fiber')
-local http_client = require('http.client')
 
 ---@type luatest.group
-local g = t.group('ratelimit')
+local g = t.group()
 
 local function make_config(rps)
     return cbuilder:new()
@@ -51,7 +50,7 @@ local function install_counter(cg)
             rawset(_G, '_ratelimit_orig', healthcheck.check_health)
         end
         rawset(_G, '_ratelimit_calls', 0)
-        healthcheck.check_health = function(...)
+        healthcheck.check_health = function()
             rawset(_G, '_ratelimit_calls', rawget(_G, '_ratelimit_calls') + 1)
             return true, {}
         end

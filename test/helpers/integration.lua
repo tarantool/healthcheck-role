@@ -72,14 +72,13 @@ function helpers.create_test_cluster(config)
 end
 
 --- Mock healthcheck restult for tests
---- 
 --- @param cluster LuatestCluster
 --- @param is_healthy boolean
 --- @param details table<string,string>|nil
 function helpers.mock_healthcheck(cluster, is_healthy, details)
     details = details or {}
     cluster:each(function(server)
-        server:exec(function(is_healthy, details)
+        server:exec(function(is_healthy, details) -- luacheck: ignore
             local healthcheck = require('healthcheck')
             if rawget(_G, '_healthcheck_check_health_orig') == nil then
                 rawset(_G, '_healthcheck_check_health_orig', healthcheck.check_health)
@@ -93,7 +92,6 @@ end
 
 --- Unmock healthcheck, returns original logic.
 --- Must be called after helpers.mock_healthcheck, otherwise throws an error.
---- 
 --- @param cluster LuatestCluster
 function helpers.unmock_healthcheck(cluster)
     cluster:each(function(server)

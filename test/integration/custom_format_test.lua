@@ -5,7 +5,7 @@ local helpers = require('test.helpers.integration')
 local cbuilder = require('luatest.cbuilder')
 
 ---@type luatest.group
-local g = t.group('custom_format')
+local g = t.group()
 
 local CUSTOM_FORMAT_NAME = 'healthcheck.custom_format'
 

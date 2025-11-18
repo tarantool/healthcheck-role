@@ -208,7 +208,7 @@ function M.check_user_checks(filter)
         if type(func_name) ~= 'string' or not func_name:startswith(USER_CHECK_PREFIX) then
             break
         end
-        
+
         if filter.exclude[func_name] ~= nil then
             goto continue
         end

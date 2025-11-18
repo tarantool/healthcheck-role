@@ -124,7 +124,7 @@ g.test_endpoints_add_remove = function(cg)
     check_endpoint_existence(8081, '/healthcheck1')
     check_endpoint_existence(8081, '/healthcheck2/')
     check_endpoint_existence(8081, '/healthcheck2')
-    t.assert_equals(cg.cluster['router']:exec(function(...)
+    t.assert_equals(cg.cluster['router']:exec(function()
         local server = require('roles.httpd').get_server()
         local cnt = 0
         for _ in pairs(server.iroutes) do

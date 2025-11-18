@@ -1,5 +1,5 @@
 local t = require('luatest')
-local g = t.group('user_checks')
+local g = t.group()
 
 local healthcheck = require('healthcheck')
 local logger = require('logger')

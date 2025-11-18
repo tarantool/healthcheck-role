@@ -2,7 +2,7 @@ local t = require('luatest')
 local helpers = require('test.helpers.integration')
 local cbuilder = require('luatest.cbuilder')
 
-local g = t.group('replication_checks_integration')
+local g = t.group()
 
 local LEADER_NAME = 'storage-1'
 local FOLLOWER_NAME = 'storage-2'

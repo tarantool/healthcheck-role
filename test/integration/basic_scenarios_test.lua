@@ -4,7 +4,6 @@ local t = require('luatest')
 local helpers = require('test.helpers.integration')
 local cbuilder = require('luatest.cbuilder')
 local details = require('details_consts')
-local http_client = require('http.client')
 
 ---@type luatest.group
 local g = t.group()
