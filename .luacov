@@ -1,7 +1,8 @@
-statsfile = 'tmp/luacov.stats.out'
-reportfile = 'tmp/luacov.report.out'
+statsfile = 'luacov.stats.out'
+reportfile = 'luacov.report.out'
 
-include = {
-	'roles/*',
-    '*.lua',
+exclude = {
+    ".rocks",
+    "test",
+    
 }

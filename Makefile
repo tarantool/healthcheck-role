@@ -12,4 +12,4 @@ test:
 	.rocks/bin/luatest -v --coverage --shuffle all
 
 coverage:
-	.rocks/bin/luacov -r summary && cat tmp/luacov.report.out
+	.rocks/bin/luacov -r summary && cat luacov.report.out
