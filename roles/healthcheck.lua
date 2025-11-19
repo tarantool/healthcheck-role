@@ -305,8 +305,8 @@ function M.apply(conf)
                     path = path,
                     name = path,
                 }, wrap_handler(function()
-                    if M.limiter ~= nil then
-                        local allowed = M.limiter:wait(0)
+                    if M.check_ratelimit ~= nil then
+                        local allowed = M.check_ratelimit()
                         if not allowed then
                             return ratelimit_response()
                         end
@@ -342,18 +342,18 @@ end
 
 
 ---sets ratelimitter
----@param ratelim number|box.NULL
+---@param rps number|box.NULL|nil
 function M.apply_ratelim(rps)
     if rps == nil or rps == box.NULL then
-        M.limiter = nil
+        M.check_ratelimit = nil
         return
     end
     local burst = math.max(1, math.floor(rps))
-    M.limiter = ratelim.new("healthcheck", rps, burst)
+    M.check_ratelimit = ratelim.get_ratelimitter(rps, burst)
 end
 
 function M.stop()
-    M.limiter = nil
+    M.check_ratelimit = nil
     M.check_filter = nil
     alerts.clear_all()
 

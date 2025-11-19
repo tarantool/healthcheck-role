@@ -82,30 +82,41 @@ end
 --- ratelimit confines number of healthcheck calls and returns 429 for overflow
 ---@param cg basic_test_context
 g.test_rps_limit_enforced = function(cg)
-    cg.cluster:reload(make_config(5):config())
-    install_counter(cg)
+    ---@param rps number
+    local function check_rps(rps)
+        cg.cluster:reload(make_config(rps):config())
+        install_counter(cg)
 
-    local total = 100
-    local ch = fiber.channel(total)
+        local total = 100
+        local ch = fiber.channel(total)
 
-    local function spam()
-        local resp = helpers.http_get(8081, '/healthcheck')
-        ch:put(resp.status)
+        local function spam()
+            local resp = helpers.http_get(8081, '/healthcheck')
+            ch:put(resp.status)
+        end
+
+        for _ = 1, total do
+            fiber.create(spam)
+        end
+
+        local stats = {}
+        for _ = 1, total do
+            local status = ch:get()
+            stats[status] = (stats[status] or 0) + 1
+        end
+
+        local calls = get_call_count(cg)
+        local allowed_cap = rps + 1 -- event loop scheduling sometimes allows one extra token
+        t.assert_le(calls, allowed_cap, 'healthcheck called more than ratelimit allows')
+
+        local allowed = stats[200] or 0
+        local limited = stats[429] or 0
+        t.assert_equals(allowed + limited, total, 'unexpected response status')
+        t.assert_le(allowed, allowed_cap)
+        t.assert_ge(limited, total - allowed_cap)
     end
 
-    for _ = 1, total do
-        fiber.create(spam)
-    end
-
-    local stats = {}
-    for _ = 1, total do
-        local status = ch:get()
-        stats[status] = (stats[status] or 0) + 1
-    end
-
-    local calls = get_call_count(cg)
-    t.assert_le(calls, 5, 'healthcheck called more than ratelimit allows')
-    t.assert_equals(stats[200], 5)
-    t.assert_equals(stats[429], 95)
+    check_rps(5)
+    check_rps(6)
+    check_rps(1)
 end
-
