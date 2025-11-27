@@ -224,6 +224,7 @@ function M.check_user_checks(filter)
             break
         end
 
+        -- Fail fast: a broken user check should halt the block so it is fixed or excluded.
         local ok, check_res, err_detail = pcall(func.call, func)
         if not ok then
             result = false

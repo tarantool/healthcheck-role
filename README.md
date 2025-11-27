@@ -173,10 +173,14 @@ roles_cfg:
 | `replication.state_bad.<peer>`             | Replica nodes           | Upstream state not `follow`/`sync`; includes upstream state/message   |
 
 Additional checks are included by default; refine with `checks.include` / `checks.exclude`.
+Only `follow` and `sync` states are considered healthy for `replication.state_bad.*`.
 
 ## Custom checks (user-defined)
 
-Any `box.func` named `healthcheck.check_*` is executed unless excluded.
+Any `box.func` named `healthcheck.check_*` is executed unless excluded. If a user-defined
+check throws an error or returns a non-boolean result, the healthcheck stops iterating over
+the remaining user checks; this fail-fast approach keeps broken checks visible and nudges
+you to fix or exclude them explicitly.
 
 ```lua
 -- migration or role code

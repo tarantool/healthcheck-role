@@ -1,5 +1,6 @@
 local M = {}
 
+-- Replication statuses treated as healthy.
 local good_states = {
     follow = true,
     sync = true,
