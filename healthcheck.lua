@@ -135,7 +135,7 @@ function M._check_wal_dir()
         path = fio.pathjoin(work_dir, path)
     end
 
-    return fio.lstat(path)
+    return fio.lstat(path) ~= nil
 end
 
 ---checks snapshot.dir exists
@@ -151,7 +151,7 @@ function M._check_snapshot_dir()
         path = fio.pathjoin(work_dir, path)
     end
 
-    return fio.lstat(path)
+    return fio.lstat(path) ~= nil
 end
 
 
