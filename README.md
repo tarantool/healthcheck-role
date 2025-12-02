@@ -1,3 +1,7 @@
+<a href='https://coveralls.io/github/tarantool/healthcheck-role?branch=master'>
+<img src='https://coveralls.io/repos/github/tarantool/healthcheck-role/badge.svg?branch=master' alt='Coverage Status' />
+</a>
+
 # Tarantool 3 Healthcheck Role
 
 A Tarantool role that exposes configurable HTTP health endpoints (e.g. `/healthcheck`), runs built-in checks (cluster and replication), executes your own checks, and can emit alerts.
@@ -21,6 +25,7 @@ A Tarantool role that exposes configurable HTTP health endpoints (e.g. `/healthc
 ## Quick start (working config)
 
 Create `config.yml`:
+
 ```yaml
 roles_cfg:
   roles.healthcheck:
@@ -41,6 +46,7 @@ groups:
 ```
 
 Create `instances.yml`:
+
 ```yaml
 router:
 ```
@@ -67,11 +73,13 @@ After start, `http://127.0.0.1:8081/healthcheck` returns `200` when all checks p
 ## Configuration (from simple to advanced)
 
 ### Minimal endpoint
+
 The snippet above enables one endpoint at `/healthcheck` on the default HTTP server; you can add more paths/endpoints if needed.
 
 For details on HTTP server configuration, see the [tarantool/http](https://github.com/tarantool/http) README.
 
 ### Custom endpoint / server
+
 ```yaml
 roles_cfg:
   roles.httpd:
@@ -87,6 +95,7 @@ roles_cfg:
 ```
 
 ### Rate limiting
+
 ```yaml
 roles_cfg:
   roles.healthcheck:
@@ -95,9 +104,11 @@ roles_cfg:
       - endpoints:
           - path: /healthcheck
 ```
+
 Excess requests return `429`.
 
 ### Alerts
+
 ```yaml
 roles_cfg:
   roles.healthcheck:
@@ -106,6 +117,7 @@ roles_cfg:
       - endpoints:
           - path: /healthcheck
 ```
+
 Failed checks are mirrored into alerts.
 
 Alerts are visible via `box.info.config.alerts` (see the
@@ -113,6 +125,7 @@ Alerts are visible via `box.info.config.alerts` (see the
 and in the [TCM](https://www.tarantool.io/en/doc/latest/tooling/tcm/) web interface.
 
 ### Additional checks include/exclude
+
 ```yaml
 roles_cfg:
   roles.healthcheck:
@@ -123,12 +136,15 @@ roles_cfg:
       - endpoints:
           - path: /healthcheck
 ```
+
 `include` / `exclude` applies to built-in additional checks. `exclude` wins. **User checks run unless explicitly excluded.**
 
 ### Custom response format
+
 Provide a formatter function in `box.func` returning `{status=<number>, headers=?, body=?}`.
 For details on the HTTP request/response format, see
 [Fields and methods of the request object](https://github.com/tarantool/http?tab=readme-ov-file#fields-and-methods-of-the-request-object).
+
 ```lua
 box.schema.func.create('custom_healthcheck_format', {
   language = 'LUA',
@@ -147,7 +163,9 @@ box.schema.func.create('custom_healthcheck_format', {
   ]]
 })
 ```
+
 Use it in the endpoint:
+
 ```yaml
 roles_cfg:
   roles.healthcheck:
@@ -159,18 +177,18 @@ roles_cfg:
 
 ## Default checks
 
-| Check key               | What it does                                | Fails when                                      |
-|-------------------------|---------------------------------------------|-------------------------------------------------|
-| `check_box_info_status` | `box.info.status == 'running'`              | Tarantool status is not `running`               |
-| `check_snapshot_dir`    | `snapshot.dir` exists (respecting work_dir) | Snapshot dir missing or inaccessible            |
-| `check_wal_dir`         | `wal.dir` exists (respecting work_dir)      | WAL dir missing or inaccessible                 |
+| Check key                 | What it does                                  | Fails when                           |
+| ------------------------- | --------------------------------------------- | ------------------------------------ |
+| `check_box_info_status` | `box.info.status == 'running'`              | Tarantool status is not `running`  |
+| `check_snapshot_dir`    | `snapshot.dir` exists (respecting work_dir) | Snapshot dir missing or inaccessible |
+| `check_wal_dir`         | `wal.dir` exists (respecting work_dir)      | WAL dir missing or inaccessible      |
 
 ## Additional checks
 
-| Key prefix / detail                        | Runs when               | Fails when / detail example                                          |
-|--------------------------------------------|-------------------------|-----------------------------------------------------------------------|
-| `replication.upstream_absent.<peer>`       | Replica nodes           | No upstream for a peer; `Replication from <peer> to <self> is not running` |
-| `replication.state_bad.<peer>`             | Replica nodes           | Upstream state not `follow`/`sync`; includes upstream state/message   |
+| Key prefix / detail                    | Runs when     | Fails when / detail example                                                 |
+| -------------------------------------- | ------------- | --------------------------------------------------------------------------- |
+| `replication.upstream_absent.<peer>` | Replica nodes | No upstream for a peer;`Replication from <peer> to <self> is not running` |
+| `replication.state_bad.<peer>`       | Replica nodes | Upstream state not `follow`/`sync`; includes upstream state/message     |
 
 Additional checks are included by default; refine with `checks.include` / `checks.exclude`.
 Only `follow` and `sync` states are considered healthy for `replication.state_bad.*`.
@@ -201,6 +219,7 @@ box.schema.func.create('healthcheck.check_space_size', {
 ```
 
 Exclude if needed:
+
 ```yaml
 roles_cfg:
   roles.healthcheck:

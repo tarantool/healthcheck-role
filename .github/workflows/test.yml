@@ -36,3 +36,7 @@ jobs:
         run: make test
       - name: Run coverage
         run: make coverage
+      - name: Send code coverage to 'coveralls.io'
+        run: make coveralls
+        env:
+          REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
