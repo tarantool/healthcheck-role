@@ -8,32 +8,7 @@ local cbuilder = require('luatest.cbuilder')
 local g = t.group()
 
 local function build_config(set_alerts)
-    return cbuilder:new()
-        :use_group('routers')
-        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
-        :set_group_option('roles_cfg', {
-            ['roles.healthcheck'] = {
-                set_alerts = set_alerts,
-                http = {
-                    {
-                        endpoints = {
-                            {
-                                path = '/healthcheck',
-                            },
-                        },
-                    },
-                },
-            },
-        })
-        :use_replicaset('router')
-        :add_instance('router', {})
-        :set_instance_option('router', 'roles_cfg', {
-            ['roles.httpd'] = {
-                default = {
-                    listen = 8081,
-                },
-            },
-        })
+    return helpers.build_router_healthcheck_config({ set_alerts = set_alerts })
 end
 
 local function get_alerts(cluster)
@@ -74,7 +49,7 @@ local function mock_success(cg)
 end
 
 local function reload_with_alerts(cg, enabled)
-    local config = build_config(enabled):config()
+    local config = build_config(enabled)
     cg.cluster:reload(config)
 end
 
@@ -123,4 +98,3 @@ g.test_alert_clears_on_success = function(cg)
     t.assert_equals(resp.status, 200)
     t.assert_equals(get_alerts(cg.cluster), {})
 end
-

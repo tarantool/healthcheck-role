@@ -1,4 +1,5 @@
 local luatest_cluster = require('luatest.cluster')
+local cbuilder = require('luatest.cbuilder')
 local fio = require('fio')
 local http_client = require('http.client')
 local clock = require('clock')
@@ -134,6 +135,66 @@ function helpers.build_httpd_roles_cfg(servers)
         cfg[server.name] = { listen = server.port }
     end
     return cfg
+end
+
+--- Build a single-router config with roles.httpd and roles.healthcheck.
+---
+--- @class router_healthcheck_config_opts
+--- @field checks? table
+--- @field set_alerts? boolean
+--- @field ratelim_rps? number|box.NULL
+--- @field endpoints? table
+--- @field format? string
+--- @field listen? number
+--- @field http_roles_cfg? table
+--- @field roles? table
+--- @field group? string
+--- @field replicaset? string
+--- @field instance? string
+function helpers.build_router_healthcheck_config(opts)
+    opts = opts or {}
+    local endpoints = opts.endpoints or {
+        {
+            path = '/healthcheck',
+            format = opts.format,
+        },
+    }
+
+    local health_cfg = {
+        http = {
+            {
+                endpoints = endpoints,
+            },
+        },
+    }
+    if opts.checks ~= nil then
+        health_cfg.checks = opts.checks
+    end
+    if opts.set_alerts ~= nil then
+        health_cfg.set_alerts = opts.set_alerts
+    end
+    if opts.ratelim_rps ~= nil then
+        health_cfg.ratelim_rps = opts.ratelim_rps
+    end
+
+    local http_roles_cfg = opts.http_roles_cfg or {
+        ['roles.httpd'] = {
+            default = {
+                listen = opts.listen or 8081,
+            },
+        },
+    }
+
+    return cbuilder:new()
+        :use_group(opts.group or 'routers')
+        :set_group_option('roles', opts.roles or { 'roles.httpd', 'roles.healthcheck' })
+        :set_group_option('roles_cfg', {
+            ['roles.healthcheck'] = health_cfg,
+        })
+        :use_replicaset(opts.replicaset or 'router')
+        :add_instance(opts.instance or 'router', {})
+        :set_instance_option(opts.instance or 'router', 'roles_cfg', http_roles_cfg)
+        :config()
 end
 
 --- generate_healthcheck_http_sections builds a randomized set of sections.

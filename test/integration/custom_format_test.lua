@@ -62,34 +62,7 @@ local function drop_custom_format(cluster)
 end
 
 local function reload_healthcheck_with_format(cluster)
-    local config = cbuilder:new()
-        :use_group('routers')
-        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
-        :set_group_option('roles_cfg', {
-            ['roles.healthcheck'] = {
-                http = {
-                    {
-                        endpoints = {
-                            {
-                                path = '/healthcheck',
-                                format = CUSTOM_FORMAT_NAME,
-                            },
-                        },
-                    },
-                },
-            },
-        })
-        :use_replicaset('router')
-        :add_instance('router', {})
-        :set_instance_option('router', 'roles_cfg', {
-            ['roles.httpd'] = {
-                default = {
-                    listen = 8081,
-                },
-            },
-        })
-        :config()
-
+    local config = helpers.build_router_healthcheck_config({ format = CUSTOM_FORMAT_NAME })
     cluster:reload(config)
 end
 
@@ -162,34 +135,7 @@ end
 g.test_custom_format_missing_function = function(cg)
     drop_custom_format(cg.cluster)
 
-    local config = cbuilder:new()
-        :use_group('routers')
-        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
-        :set_group_option('roles_cfg', {
-            ['roles.healthcheck'] = {
-                http = {
-                    {
-                        endpoints = {
-                            {
-                                path = '/healthcheck',
-                                format = CUSTOM_FORMAT_NAME,
-                            },
-                        },
-                    },
-                },
-            },
-        })
-        :use_replicaset('router')
-        :add_instance('router', {})
-        :set_instance_option('router', 'roles_cfg', {
-            ['roles.httpd'] = {
-                default = {
-                    listen = 8081,
-                },
-            },
-        })
-        :config()
-
+    local config = helpers.build_router_healthcheck_config({ format = CUSTOM_FORMAT_NAME })
     t.assert_error_msg_contains(
         CUSTOM_FORMAT_NAME,
         function()

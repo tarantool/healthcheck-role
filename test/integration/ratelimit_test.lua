@@ -7,30 +7,9 @@ local fiber = require('fiber')
 local g = t.group()
 
 local function make_config(rps)
-    return cbuilder:new()
-        :use_group('routers')
-        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
-        :set_group_option('roles_cfg', {
-            ['roles.healthcheck'] = {
-                ratelim_rps = rps,
-                http = {
-                    {
-                        endpoints = {
-                            { path = '/healthcheck' },
-                        },
-                    },
-                },
-            },
-        })
-        :use_replicaset('router')
-        :add_instance('router', {})
-        :set_instance_option('router', 'roles_cfg', {
-            ['roles.httpd'] = {
-                default = {
-                    listen = 8081,
-                },
-            },
-        })
+    return helpers.build_router_healthcheck_config({
+        ratelim_rps = rps,
+    })
 end
 
 g.before_each(function(cg)
@@ -84,7 +63,7 @@ end
 g.test_rps_limit_enforced = function(cg)
     ---@param rps number
     local function check_rps(rps)
-        cg.cluster:reload(make_config(rps):config())
+        cg.cluster:reload(make_config(rps))
         install_counter(cg)
 
         local total = 100

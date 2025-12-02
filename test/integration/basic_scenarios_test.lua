@@ -58,69 +58,21 @@ local function register_custom_check(cluster, body)
     end, {CUSTOM_CHECK_NAME, body})
 end
 
---- Build healthcheck role config with provided checks section.
+--- Build healthcheck role config with provided checks and optional overrides.
 ---@param checks table|nil
+---@param opts table|nil
 ---@return table
-local function build_healthcheck_config(checks)
-    return cbuilder:new()
-        :use_group('routers')
-        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
-        :set_group_option('roles_cfg', {
-            ['roles.healthcheck'] = {
-                checks = checks,
-                http = {
-                    {
-                        endpoints = {
-                            {
-                                path = '/healthcheck',
-                            },
-                        },
-                    },
-                },
-            },
-        })
-        :use_replicaset('router')
-        :add_instance('router', {})
-        :set_instance_option('router', 'roles_cfg', {
-            ['roles.httpd'] = {
-                default = {
-                    listen = 8081,
-                },
-            },
-        })
-        :config()
+local function build_healthcheck_config(checks, opts)
+    opts = opts or {}
+    opts.checks = checks
+    return helpers.build_router_healthcheck_config(opts)
 end
 
 
 --- basic test with minimum config like in cartridge
 ---@param cg basic_test_context
 g.test_basic = function(cg)
-    local config = cbuilder:new()
-        :use_group('routers')
-        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
-        :set_group_option('roles_cfg', {
-            ['roles.healthcheck'] = {
-                http = {
-                    {
-                        endpoints = {
-                            {
-                                path = '/healthcheck',
-                            },
-                        },
-                    },
-                },
-            },
-        })
-        :use_replicaset('router')
-        :add_instance('router', {})
-        :set_instance_option('router', 'roles_cfg', {
-            ['roles.httpd'] = {
-                default = {
-                    listen = 8081,
-                },
-            },
-        })
-        :config()
+    local config = build_healthcheck_config()
     cg.cluster:reload(config)
 
     local resp = helpers.http_get(8081,'/healthcheck')
@@ -133,32 +85,7 @@ end
 --- basic test with minimum config like in cartridge
 ---@param cg basic_test_context
 g.test_basic_not_ok = function (cg)
-    local config = cbuilder:new()
-        :use_group('routers')
-        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
-        :set_group_option('roles_cfg', {
-            ['roles.healthcheck'] = {
-                http = {
-                    {
-                        endpoints = {
-                            {
-                                path = '/healthcheck',
-                            },
-                        },
-                    },
-                },
-            },
-        })
-        :use_replicaset('router')
-        :add_instance('router', {})
-        :set_instance_option('router', 'roles_cfg', {
-            ['roles.httpd'] = {
-                default = {
-                    listen = 8081,
-                },
-            },
-        })
-        :config()
+    local config = build_healthcheck_config()
     cg.cluster:reload(config)
     helpers.mock_healthcheck(cg.cluster, false, {
         check_box_info_status = details.BOX_INFO_STATUS_NOT_RUNNING,
@@ -175,32 +102,7 @@ end
 --- ensure custom user-defined check returning true keeps endpoint healthy
 ---@param cg basic_test_context
 g.test_custom_check = function(cg)
-    local config = cbuilder:new()
-        :use_group('routers')
-        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
-        :set_group_option('roles_cfg', {
-            ['roles.healthcheck'] = {
-                http = {
-                    {
-                        endpoints = {
-                            {
-                                path = '/healthcheck',
-                            },
-                        },
-                    },
-                },
-            },
-        })
-        :use_replicaset('router')
-        :add_instance('router', {})
-        :set_instance_option('router', 'roles_cfg', {
-            ['roles.httpd'] = {
-                default = {
-                    listen = 8081,
-                },
-            },
-        })
-        :config()
+    local config = build_healthcheck_config()
     cg.cluster:reload(config)
 
     register_custom_check(cg.cluster, [[
@@ -221,32 +123,7 @@ end
 --- ensure failing custom check propagates error to HTTP response
 ---@param cg basic_test_context
 g.test_custom_check_not_ok = function(cg)
-    local config = cbuilder:new()
-        :use_group('routers')
-        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
-        :set_group_option('roles_cfg', {
-            ['roles.healthcheck'] = {
-                http = {
-                    {
-                        endpoints = {
-                            {
-                                path = '/healthcheck',
-                            },
-                        },
-                    },
-                },
-            },
-        })
-        :use_replicaset('router')
-        :add_instance('router', {})
-        :set_instance_option('router', 'roles_cfg', {
-            ['roles.httpd'] = {
-                default = {
-                    listen = 8081,
-                },
-            },
-        })
-        :config()
+    local config = build_healthcheck_config()
     cg.cluster:reload(config)
 
     register_custom_check(cg.cluster, [[
@@ -268,33 +145,7 @@ end
 --- custom check failure raises alert when set_alerts enabled
 ---@param cg basic_test_context
 g.test_custom_check_alert = function(cg)
-    local config = cbuilder:new()
-        :use_group('routers')
-        :set_group_option('roles', { 'roles.httpd', 'roles.healthcheck' })
-        :set_group_option('roles_cfg', {
-            ['roles.healthcheck'] = {
-                set_alerts = true,
-                http = {
-                    {
-                        endpoints = {
-                            {
-                                path = '/healthcheck',
-                            },
-                        },
-                    },
-                },
-            },
-        })
-        :use_replicaset('router')
-        :add_instance('router', {})
-        :set_instance_option('router', 'roles_cfg', {
-            ['roles.httpd'] = {
-                default = {
-                    listen = 8081,
-                },
-            },
-        })
-        :config()
+    local config = build_healthcheck_config(nil, { set_alerts = true })
     cg.cluster:reload(config)
 
     register_custom_check(cg.cluster, [[
