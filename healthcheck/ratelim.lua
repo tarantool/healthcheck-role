@@ -2,19 +2,19 @@
 local fiber = require('fiber')
 local M = {}
 
---- get_ratelimitter simple ratelimiter for http requests
+--- get_ratelimiter simple ratelimiter for http requests.
 --- @param rps number desired rps for ratelimit
---- @param burst number deisred burst for ratelimit, must be greater than rps
+--- @param burst number desired burst for ratelimit, must be greater than rps
 --- @return fun(): boolean
 --- ** usage **
 ---
 --- local ratelim = require('healthcheck.ratelim')
 ---
---- local check_limit = ratelim.get_ratelimitter(10, 11)
+--- local check_limit = ratelim.get_ratelimiter(10, 11)
 ---
 --- check_limit()
-function M.get_ratelimitter(rps, burst)
-    assert(burst >= rps, 'burst must be greather than rps')
+function M.get_ratelimiter(rps, burst)
+    assert(burst >= rps, 'burst must be not less than rps')
     local tokens = burst
     local last_time = fiber.time()
 
@@ -27,7 +27,7 @@ function M.get_ratelimitter(rps, burst)
             last_time = now
         end
 
-        -- check limit
+        -- Сheck limit.
         if tokens >= 1 then
             tokens = tokens - 1
             return true

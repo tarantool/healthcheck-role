@@ -53,7 +53,7 @@ local function reload_with_alerts(cg, enabled)
     cg.cluster:reload(config)
 end
 
---- alerts appear when set_alerts enabled and checks fail
+--- alerts appear when set_alerts enabled and checks fail.
 ---@param cg basic_test_context
 g.test_alert_created_on_failure = function(cg)
     reload_with_alerts(cg, true)

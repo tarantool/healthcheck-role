@@ -5,7 +5,7 @@ local g = t.group()
 local ratelim = require('healthcheck.ratelim')
 
 g.test_basic = function()
-    local check_limit = ratelim.get_ratelimitter(1,1)
+    local check_limit = ratelim.get_ratelimiter(1,1)
     t.assert(check_limit())
     fiber.sleep(0.5)
     t.assert(not check_limit())
@@ -15,7 +15,7 @@ end
 
 g.test_consumes_initial_burst = function()
     local burst = 3
-    local check_limit = ratelim.get_ratelimitter(1, burst)
+    local check_limit = ratelim.get_ratelimiter(1, burst)
 
     for _ = 1, burst do
         t.assert(check_limit(), 'expected burst tokens to be available')
@@ -24,7 +24,7 @@ g.test_consumes_initial_burst = function()
 end
 
 g.test_tokens_refill_over_time = function()
-    local check_limit = ratelim.get_ratelimitter(2, 2)
+    local check_limit = ratelim.get_ratelimiter(2, 2)
 
     t.assert(check_limit())
     t.assert(check_limit())
@@ -36,9 +36,9 @@ end
 
 g.test_invalid_burst_value = function()
     t.assert_error_msg_contains(
-        'burst must be greather than rps',
+        'burst must be not less than rps',
         function()
-            ratelim.get_ratelimitter(10, 5)
+            ratelim.get_ratelimiter(10, 5)
         end
     )
 end

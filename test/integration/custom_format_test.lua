@@ -53,8 +53,24 @@ local function register_remote_func(cluster, func_name, body)
     end, {func_name, body})
 end
 
-local function register_custom_format(cluster, body)
-    register_remote_func(cluster, CUSTOM_FORMAT_NAME, body)
+local function register_custom_format(cluster)
+    register_remote_func(cluster, CUSTOM_FORMAT_NAME, [[
+        function(is_healthy, errs)
+            local json = require('json')
+            if is_healthy then
+                return {
+                    status = 209,
+                    headers = { ['content-type'] = 'application/json' },
+                    body = json.encode({ custom = 'ok' }),
+                }
+            end
+            return {
+                status = 560,
+                headers = { ['content-type'] = 'application/json' },
+                body = json.encode({ errors = errs }),
+            }
+        end
+    ]])
 end
 
 local function drop_custom_format(cluster)
@@ -69,23 +85,7 @@ end
 --- ensure custom format overrides default success response
 ---@param cg basic_test_context
 g.test_custom_format_success = function(cg)
-    register_custom_format(cg.cluster, [[
-        function(is_healthy, errs)
-            local json = require('json')
-            if is_healthy then
-                return {
-                    status = 209,
-                    headers = { ['content-type'] = 'application/json' },
-                    body = json.encode({ custom = 'ok' }),
-                }
-            end
-            return {
-                status = 560,
-                headers = { ['content-type'] = 'application/json' },
-                body = json.encode({ errors = errs }),
-            }
-        end
-    ]])
+    register_custom_format(cg.cluster)
 
     reload_healthcheck_with_format(cg.cluster)
 
@@ -99,23 +99,7 @@ end
 --- ensure failing custom format receives errors
 ---@param cg basic_test_context
 g.test_custom_format_not_ok = function(cg)
-    register_custom_format(cg.cluster, [[
-        function(is_healthy, errs)
-            local json = require('json')
-            if is_healthy then
-                return {
-                    status = 209,
-                    headers = { ['content-type'] = 'application/json' },
-                    body = json.encode({ custom = 'ok' }),
-                }
-            end
-            return {
-                status = 560,
-                headers = { ['content-type'] = 'application/json' },
-                body = json.encode({ errors = errs }),
-            }
-        end
-    ]])
+    register_custom_format(cg.cluster)
 
     reload_healthcheck_with_format(cg.cluster)
     helpers.mock_healthcheck(cg.cluster, false, {
@@ -147,23 +131,7 @@ end
 --- format removal after apply should flip endpoint to 500 with explanation
 ---@param cg basic_test_context
 g.test_custom_format_removed_after_apply = function(cg)
-    register_custom_format(cg.cluster, [[
-        function(is_healthy, errs)
-            local json = require('json')
-            if is_healthy then
-                return {
-                    status = 200,
-                    headers = { ['content-type'] = 'application/json' },
-                    body = json.encode({ custom = 'ok' }),
-                }
-            end
-            return {
-                status = 560,
-                headers = { ['content-type'] = 'application/json' },
-                body = json.encode({ errors = errs }),
-            }
-        end
-    ]])
+    register_custom_format(cg.cluster)
 
     reload_healthcheck_with_format(cg.cluster)
     drop_custom_format(cg.cluster)
@@ -172,6 +140,6 @@ g.test_custom_format_removed_after_apply = function(cg)
     t.assert_equals(resp.status, 500)
     t.assert_equals(resp:decode(), {
         status = 'dead',
-        details = {("healthcheck format function '%s' is not defined"):format(CUSTOM_FORMAT_NAME)},
+        details = {("healthcheck format function '%q' is not defined"):format(CUSTOM_FORMAT_NAME)},
     })
 end

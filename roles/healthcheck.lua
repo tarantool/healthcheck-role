@@ -224,9 +224,9 @@ end
 
 local function formatter_error_detail(format_name, reason)
     if reason == nil then
-        return ("healthcheck format function '%s' is not defined"):format(format_name)
+        return ("healthcheck format function '%q' is not defined"):format(format_name)
     end
-    return ("healthcheck format function '%s' %s"):format(format_name, reason)
+    return ("healthcheck format function '%q' %s"):format(format_name, reason)
 end
 
 local function formatter_error_response(format_name, reason)
@@ -252,19 +252,19 @@ local function build_response(is_healthy, details, format_name)
         -- box.cfg might be not initialized yet, guard box.func access
         local fmt = box.func and box.func[format_name]
         if fmt == nil or fmt.call == nil then
-            log.error("healthcheck format function '%s' is not defined", format_name)
+            log.error("healthcheck format function '%q' is not defined", format_name)
             return formatter_error_response(format_name)
         end
 
         -- tarantool box.func:call expects argument list packed in a table
         local ok, response = pcall(fmt.call, fmt, {is_healthy, details})
         if not ok then
-            log.error("healthcheck format function '%s' failed: %s", format_name, tostring(response))
+            log.error("healthcheck format function '%q' failed: %s", format_name, tostring(response))
             return formatter_error_response(format_name, 'failed to execute')
         end
 
         if type(response) ~= 'table' then
-            log.error("healthcheck format function '%s' returned non-table result", format_name)
+            log.error("healthcheck format function '%q' returned non-table result", format_name)
             return formatter_error_response(format_name, 'returned invalid response')
         end
 
@@ -283,7 +283,7 @@ function M.apply(conf)
     for _, http_cfg in pairs(new_conf.http) do
         local server = httpd_role.get_server(http_cfg.server)
         if server == nil then
-            local msg = ("incorrect configuration, http server '%s' does not exist. check roles.https config"):format(http_cfg.server)
+            local msg = ("incorrect configuration, http server %q does not exist. check roles.https config"):format(http_cfg.server)
             log.error(msg)
             error(msg)
         end
@@ -293,7 +293,7 @@ function M.apply(conf)
         alerts.clear_all()
     end
 
-    -- set new routes
+    -- Set new routes.
     for _, http_cfg in pairs(new_conf.http) do
         local server = httpd_role.get_server(http_cfg.server)
         for _, endpoint in pairs(http_cfg.endpoints) do
@@ -322,7 +322,7 @@ function M.apply(conf)
             end
         end
     end
-    -- delete old routes
+    -- Delete old routes.
     local routes_to_delete = get_routes_to_delete(M.prev_conf, new_conf)
     for server_name, pathes in pairs(routes_to_delete) do
         local server = httpd_role.get_server(server_name)
@@ -341,7 +341,7 @@ function M.apply(conf)
 end
 
 
----sets ratelimitter
+--- sets ratelimiter.
 ---@param rps number|box.NULL|nil
 function M.apply_ratelim(rps)
     if rps == nil or rps == box.NULL then
@@ -349,7 +349,7 @@ function M.apply_ratelim(rps)
         return
     end
     local burst = math.max(1, math.floor(rps))
-    M.check_ratelimit = ratelim.get_ratelimitter(rps, burst)
+    M.check_ratelimit = ratelim.get_ratelimiter(rps, burst)
 end
 
 function M.stop()
@@ -357,7 +357,7 @@ function M.stop()
     M.check_filter = nil
     alerts.clear_all()
 
-    -- deletes all routes
+    -- Deletes all routes.
     if M.prev_conf == nil then
         return
     end

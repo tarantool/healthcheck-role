@@ -81,7 +81,7 @@ g.test_replication_checks_fail_when_leader_down = function(cg)
     local body = resp_bad:decode()
     t.assert_equals(body.status, 'dead')
     local concat_details = table.concat(body.details or {}, ' ')
-    t.assert_str_contains(concat_details, 'Replication from storage-1 to storage-2 state')
+    t.assert_str_contains(concat_details, 'Replication from \"storage-1\" to \"storage-2\" state')
 end
 
 ---@param cg basic_test_context
@@ -103,7 +103,7 @@ g.test_replication_checks_fail_when_upstream_removed = function(cg)
     local body = resp_bad:decode()
     t.assert_equals(body.status, 'dead')
     local concat_details = table.concat(body.details or {}, ' ')
-    t.assert_str_contains(concat_details, 'Replication from storage-1 to storage-2 is not running')
+    t.assert_str_contains(concat_details, 'Replication from \"storage-1\" to \"storage-2\" is not running')
 
     local resp_master = helpers.http_get(8081, '/healthcheck')
     t.assert_equals(resp_master.status, 200)
@@ -149,7 +149,7 @@ g.test_replication_group_include_respects_exclude_subcheck = function(cg)
     local body = resp:decode()
     t.assert_equals(body.status, 'dead')
     local concat_details = table.concat(body.details or {}, ' ')
-    t.assert_str_contains(concat_details, 'Replication from storage-1 to storage-2 is not running')
+    t.assert_str_contains(concat_details, 'Replication from \"storage-1\" to \"storage-2\" is not running')
 end
 
 g.test_replication_checks_skip_on_leader = function(cg)

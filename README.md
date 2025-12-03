@@ -31,7 +31,7 @@ roles_cfg:
   roles.healthcheck:
     http:
       - endpoints:
-          - path: /healthcheck
+        - path: /healthcheck
 groups:
   group-001:
     replicasets:

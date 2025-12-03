@@ -72,7 +72,8 @@ function helpers.create_test_cluster(config)
     return cluster
 end
 
---- Mock healthcheck restult for tests
+--- Mock healthcheck restult for tests.
+---
 --- @param cluster LuatestCluster
 --- @param is_healthy boolean
 --- @param details table<string,string>|nil

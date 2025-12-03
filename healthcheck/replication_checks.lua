@@ -35,12 +35,10 @@ function M.check_upstream_absent()
     local self_name = box.info.name
     for _, replica in pairs(get_replication_info()) do
         local label = peer_label(replica)
-        if label ~= nil and label ~= self_name then
-            if replica.upstream == nil then
-                ok = false
-                local key = string.format('replication.upstream_absent.%s', label)
-                details[key] = string.format('Replication from %s to %s is not running', label, self_name)
-            end
+        if label ~= nil and label ~= self_name and replica.upstream == nil then
+            ok = false
+            local key = string.format('replication.upstream_absent.%s', label)
+            details[key] = string.format('Replication from %q to %q is not running', label, self_name)
         end
     end
 
@@ -70,7 +68,7 @@ function M.check_state_bad()
                 ok = false
                 local key = string.format('replication.state_bad.%s', label)
                 local msg = upstream.message or ''
-                details[key] = string.format('Replication from %s to %s state %q (%s)', label, self_name, status, tostring(msg))
+                details[key] = string.format('Replication from %q to %q state %q (%s)', label, self_name, status, tostring(msg))
             end
         end
         ::continue::

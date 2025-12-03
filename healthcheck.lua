@@ -138,7 +138,7 @@ function M._check_wal_dir()
     return fio.lstat(path) ~= nil
 end
 
----checks snapshot.dir exists
+--- checks snapshot.dir exists
 ---@return boolean
 function M._check_snapshot_dir()
     if type(box.cfg) ~= 'table' then
@@ -195,7 +195,7 @@ end
 
 --- check_user_checks executes user-defined checks registered in _func space.
 --- box functions must start with healthcheck.check_ prefix and return boolean[, string].
---- user defined checks will not be executed only if they directly added `exlcude`
+--- user defined checks will not be executed only if they directly added `exlcude`.
 ---@param filter CheckFilterNormalized
 ---@return boolean, table<string, string>
 function M.check_user_checks(filter)
@@ -270,7 +270,7 @@ local function normalize_to_set(list)
     return result
 end
 
---- normalize_filter adds default values to CheckFilter
+--- normalize_filter adds default values to CheckFilter.
 --- @param filter CheckFilter|nil
 --- @return CheckFilterNormalized
 function M._normalize_filter(filter)

@@ -4,5 +4,4 @@ reportfile = 'luacov.report.out'
 exclude = {
     ".rocks",
     "test",
-    
 }

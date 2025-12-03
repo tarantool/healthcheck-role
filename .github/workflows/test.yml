@@ -29,11 +29,12 @@ jobs:
       - name: Build module
         run: |
           make build
-          # integration tests will use files from root, not from .rocks
+          # Integration tests will use files from root, not from .rocks.
           tt rocks remove healthcheck-role
 
       - name: Run tests with code coverage analysis
         run: make test
+
       - name: Run coverage
         run: make coverage
       - name: Send code coverage to 'coveralls.io'
