@@ -1,0 +1,145 @@
+local t = require('luatest')
+local g = t.group()
+
+local healthcheck_role = require('roles.healthcheck')
+
+-- ensure a typical configuration passes schema validation
+function g.test_valid_config()
+    local cfg = {
+        set_alerts = true,
+        ratelim_rps = 5,
+        http = {
+            {
+                server = 'default',
+                endpoints = {
+                    { path = '/healthz' },
+                    { path = 'ready' },
+                },
+            },
+            {
+                endpoints = {
+                    { path = '/health/secondary' },
+                },
+            },
+        },
+    }
+
+    healthcheck_role.validate(cfg)
+end
+
+-- invalid endpoint path type should be rejected by schema
+function g.test_invalid_path_type()
+    local cfg = {
+        http = {
+            {
+                endpoints = {
+                    { path = 42 },
+                },
+            },
+        },
+    }
+
+    t.assert_error_msg_contains(
+        'http[1].endpoints[1].path',
+        function()
+            healthcheck_role.validate(cfg)
+        end
+    )
+end
+
+-- format field is optional but must be a string when present
+function g.test_valid_format_config()
+    local cfg = {
+        http = {
+            {
+                endpoints = {
+                    { path = '/healthz', format = 'custom_healthcheck_format' },
+                },
+            },
+        },
+    }
+
+    healthcheck_role.validate(cfg)
+end
+
+function g.test_invalid_format_type()
+    local cfg = {
+        http = {
+            {
+                endpoints = {
+                    { path = '/healthz', format = 123 },
+                },
+            },
+        },
+    }
+
+    t.assert_error_msg_contains(
+        'http[1].endpoints[1].format',
+        function()
+            healthcheck_role.validate(cfg)
+        end
+    )
+end
+
+function g.test_invalid_set_alerts_type()
+    local cfg = {
+        set_alerts = 'yes',
+        http = {
+            {
+                endpoints = {
+                    { path = '/healthz' },
+                },
+            },
+        },
+    }
+
+    t.assert_error_msg_contains(
+        'set_alerts',
+        function()
+            healthcheck_role.validate(cfg)
+        end
+    )
+end
+
+function g.test_invalid_ratelim_value()
+    local cfg = {
+        ratelim_rps = -1,
+        http = {
+            {
+                endpoints = {
+                    { path = '/healthz' },
+                },
+            },
+        },
+    }
+
+    t.assert_error_msg_contains(
+        'ratelim_rps',
+        function()
+            healthcheck_role.validate(cfg)
+        end
+    )
+end
+
+function g.test_invalid_checks_type()
+    local cfg = {
+        checks = {
+            include = {1},
+            exclude = {'healthcheck.check_custom'},
+        },
+        http = {
+            {
+                endpoints = {
+                    { path = '/healthz' },
+                },
+            },
+        },
+    }
+
+    t.assert_error_msg_contains(
+        'checks.include',
+        function()
+            healthcheck_role.validate(cfg)
+        end
+    )
+end

@@ -1,0 +1,43 @@
+name: Testing
+
+on:
+  push:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        tarantool: ['3.3', '3.4', '3.5']
+    runs-on: [ubuntu-22.04]
+    steps:
+      - uses: actions/checkout@master
+      - uses: tarantool/setup-tarantool@v4
+        with:
+          tarantool-version: ${{ matrix.tarantool }}
+
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/2/installer.sh | sudo bash
+          sudo apt install -y tt
+          tt version
+
+      - run: make deps
+
+      - name: Build module
+        run: |
+          make build
+          # Integration tests will use files from root, not from .rocks.
+          tt rocks remove healthcheck-role
+
+      - name: Run tests with code coverage analysis
+        run: make test
+
+      - name: Run coverage
+        run: make coverage
+      - name: Send code coverage to 'coveralls.io'
+        run: make coveralls
+        env:
+          REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
