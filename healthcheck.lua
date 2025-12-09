@@ -115,45 +115,54 @@ function M.check_defaults()
     return result, details
 end
 
-
----checks box.info.status == 'running'
+---checks box.info.status == 'running'.
 ---@return boolean
 function M._check_box_info_status()
     return box.info.status == 'running'
 end
 
----checks wal.dir exists
+local function is_abs_path(path)
+    return string.startswith(path, '/')
+end
+
+local function get_path_from_work_dir(work_dir, dir_path)
+    if work_dir == nil or work_dir == box.NULL or (not is_abs_path(work_dir)) then
+        work_dir = fio.cwd()
+    end
+    return fio.pathjoin(work_dir, dir_path)
+end
+
+local function check_dir_option(option_name)
+    if type(box.cfg) ~= 'table' then
+        return true
+    end
+
+    local dir = config:get(option_name)
+    local work_dir = config:get('process.work_dir')
+
+    if dir == nil or dir == box.NULL then
+        return false
+    end
+
+    local path = dir
+    if not is_abs_path(dir) then
+        path = get_path_from_work_dir(work_dir, path)
+    end
+
+    return fio.lstat(path) ~= nil
+end
+
+---checks wal.dir exists.
 ---@return boolean
 function M._check_wal_dir()
-    if type(box.cfg) ~= 'table' then
-        return true
-    end
-
-    local path = config:get('wal.dir')
-    local work_dir = config:get('process.work_dir')
-    if work_dir ~= box.NULL then
-        path = fio.pathjoin(work_dir, path)
-    end
-
-    return fio.lstat(path) ~= nil
+    return check_dir_option('wal.dir')
 end
 
---- checks snapshot.dir exists
+---checks snapshot.dir exists.
 ---@return boolean
 function M._check_snapshot_dir()
-    if type(box.cfg) ~= 'table' then
-        return true
-    end
-
-    local path = config:get('snapshot.dir')
-    local work_dir = config:get('process.work_dir')
-    if work_dir ~= box.NULL then
-        path = fio.pathjoin(work_dir, path)
-    end
-
-    return fio.lstat(path) ~= nil
+    return check_dir_option('snapshot.dir')
 end
-
 
 --- check_additional executes optional built-in checks controlled by include/exclude filter.
 --- By default include_all=true so all additional checks run; set include manually to opt in specific ones.

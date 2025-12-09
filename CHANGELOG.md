@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+### Fixed
+
+- Fixed snapshot/WAL directory checks. Absolute paths now work correctly; other combinations were
+  tested as well.
+
 ## 0.1.0
 
 ### Added
