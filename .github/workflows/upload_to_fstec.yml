@@ -1,0 +1,20 @@
+name: Upload to FSTEC
+
+on:
+  workflow_dispatch:
+    inputs:
+      SDK_VERSION:
+        description: 'SDK version to download'
+        required: true
+        type: string
+
+jobs:
+  upload:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Display SDK version
+        run: |
+          echo "SDK_VERSION: ${{ inputs.SDK_VERSION }}"
