@@ -18,7 +18,6 @@ coverage:
 lint:
 	.rocks/bin/luacheck --config=.luacheckrc .
 
-
 coveralls: coverage
 	echo "Send code coverage data to the coveralls.io service"
-	.rocks/bin/luacov-coveralls --verbose --repo-token ${REPO_TOKEN}
+	.rocks/bin/luacov-coveralls -o coveralls.json --verbose --repo-token ${REPO_TOKEN}
